@@ -9,7 +9,7 @@
   --bg-surface: #FFFFFF;
   --bg-surface-warm: #F6F3EC;
   --bg-surface-subtle: #F2EFE8;
-  --bg-sidebar: #3A4220;
+  --bg-sidebar: linear-gradient(180deg, #4A552B 0%, #3A4220 50%, #282F15 100%);
   --bg-sidebar-hover: #48512A;
   --bg-sidebar-active: #545E30;
 
