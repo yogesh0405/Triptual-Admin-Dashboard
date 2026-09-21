@@ -31,6 +31,11 @@ export interface MockUser {
   isVerified: boolean;
   upiId?: string;
   travelStyle?: string;
+  isTemp?: boolean;
+  avatar?: string;
+  currency?: string;
+  dateOfBirth?: string;
+  pushToken?: string;
   avatarColor: string;
   avatarInitials: string;
   tripsCount: number;

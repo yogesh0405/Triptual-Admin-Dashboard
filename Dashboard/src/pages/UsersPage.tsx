@@ -1,11 +1,11 @@
-import React, { useState, useMemo, useCallback } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import {
   Search, Filter, Download, UserCheck, UserX,
   KeyRound, X, ChevronDown, Mail, Phone,
   BadgeCheck, Clock, ShieldOff, Eye,
   MapPin, Wallet, TrendingUp,
 } from 'lucide-react';
-import { MOCK_USERS } from '../data/mockData';
+import { getUsers, updateUserPassword, updateUserStatus } from '../api';
 import type { MockUser, UserRole, UserStatus, ToastMessage } from '../types';
 import './UsersPage.css';
 
@@ -31,12 +31,95 @@ const STATUS_ICON: Record<UserStatus, React.ReactNode> = {
   Suspended: <ShieldOff size={12} />,
 };
 
+const formatIST = (value: string | null | undefined) => {
+  if (!value || value === 'Unknown') return 'Unknown';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return new Intl.DateTimeFormat('en-IN', {
+    timeZone: 'Asia/Kolkata',
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: true,
+  }).format(date);
+};
+
+const resolveIllustrationUrl = (avatar?: string | null) => {
+  if (!avatar) return null;
+
+  const cleaned = avatar.trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://')) return cleaned;
+
+  const fileName = cleaned.split(/[\\/]/).pop() ?? cleaned;
+  const noExt = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
+
+  const candidates = [
+    fileName,
+    noExt,
+    `ill_${noExt.replace(/^ill_/, '')}`,
+    `${noExt}.jpg`,
+    `ill_${noExt.replace(/^ill_/, '')}.jpg`,
+  ];
+
+  for (const candidate of candidates) {
+    const normalized = candidate.startsWith('/illustrations/') ? candidate : `/illustrations/${candidate}`;
+    if (candidate && normalized.endsWith('.jpg') || normalized.endsWith('.jpeg') || normalized.endsWith('.png') || normalized.endsWith('.webp')) {
+      return normalized;
+    }
+  }
+
+  return null;
+};
+
+const renderAvatar = (user: { avatar?: string | null; avatarInitials: string; avatarColor: string }, size: 'sm' | 'lg') => {
+  const illustrationUrl = resolveIllustrationUrl(user.avatar);
+
+  if (illustrationUrl) {
+    return (
+      <img
+        src={illustrationUrl}
+        alt={user.avatarInitials}
+        className={size === 'lg' ? 'avatar avatar-lg' : 'avatar avatar-md'}
+        style={{
+          width: size === 'lg' ? 64 : 32,
+          height: size === 'lg' ? 64 : 32,
+          objectFit: 'cover',
+          borderRadius: '50%',
+          background: user.avatarColor + '22',
+          border: '1px solid rgba(255,255,255,0.08)',
+        }}
+      />
+    );
+  }
+
+  return (
+    <div
+      className={size === 'lg' ? 'avatar avatar-lg' : 'avatar avatar-md'}
+      style={{ background: user.avatarColor + '22', color: user.avatarColor }}
+    >
+      {user.avatarInitials}
+    </div>
+  );
+};
+
 const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState<string>('All');
   const [statusFilter, setStatusFilter] = useState<string>('All');
   const [selectedUser, setSelectedUser] = useState<MockUser | null>(null);
-  const [users, setUsers] = useState<MockUser[]>(MOCK_USERS);
+  const [newPassword, setNewPassword] = useState('');
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
+  const [users, setUsers] = useState<MockUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+
+  useEffect(() => {
+    getUsers().then((result) => setUsers(result.users)).catch((err) => setError(err instanceof Error ? err.message : 'Unable to load users')).finally(() => setLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     return users.filter((u) => {
@@ -50,20 +133,30 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
 
   const handleToggleStatus = useCallback((user: MockUser) => {
     const newStatus: UserStatus = user.status === 'Active' ? 'Suspended' : 'Active';
-    setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, status: newStatus } : u));
-    setSelectedUser((prev) => prev?.id === user.id ? { ...prev, status: newStatus } : prev);
-    onToast({
-      message: `${user.name} marked as ${newStatus}`,
-      type: newStatus === 'Active' ? 'success' : 'warning',
-    });
+    updateUserStatus(user.id, newStatus).then(() => {
+      setUsers((prev) => prev.map((u) => u.id === user.id ? { ...u, status: newStatus } : u));
+      setSelectedUser((prev) => prev?.id === user.id ? { ...prev, status: newStatus } : prev);
+      onToast({ message: `${user.name} marked as ${newStatus}`, type: newStatus === 'Active' ? 'success' : 'warning' });
+    }).catch((err) => onToast({ message: err instanceof Error ? err.message : 'Unable to update user', type: 'error' }));
   }, [onToast]);
 
   const handleResetPassword = useCallback((user: MockUser) => {
-    onToast({ message: `Password reset email sent to ${user.email}`, type: 'success' });
-  }, [onToast]);
+    if (newPassword.length < 8) {
+      onToast({ message: 'Enter a password with at least 8 characters', type: 'error' });
+      return;
+    }
+    setIsUpdatingPassword(true);
+    updateUserPassword(user.id, newPassword).then(() => {
+      setNewPassword('');
+      onToast({ message: `Password updated for ${user.email}`, type: 'success' });
+    }).catch((err) => onToast({ message: err instanceof Error ? err.message : 'Unable to update password', type: 'error' })).finally(() => setIsUpdatingPassword(false));
+  }, [newPassword, onToast]);
+
+  if (loading) return <div className="page-loading">Loading users from the database...</div>;
 
   return (
     <div className="users-page">
+    {error && <div className="data-error">{error}</div>}
       {/* Header */}
       <div className="page-header">
         <div>
@@ -142,12 +235,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                   <tr key={user.id}>
                     <td>
                       <div className="user-cell">
-                        <div
-                          className="avatar avatar-md"
-                          style={{ background: user.avatarColor + '22', color: user.avatarColor }}
-                        >
-                          {user.avatarInitials}
-                        </div>
+                        {renderAvatar(user, 'sm')}
                         <div>
                           <div className="user-name">
                             {user.name}
@@ -162,7 +250,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                     <td>
                       <div className="contact-cell">
                         <span><Mail size={12} /> {user.email}</span>
-                        <span><Phone size={12} /> {user.phone}</span>
+                        {user.phone ? <span><Phone size={12} /> {user.phone}</span> : null}
                       </div>
                     </td>
                     <td><span className={ROLE_BADGE[user.role]}>{user.role}</span></td>
@@ -173,18 +261,18 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                       </span>
                     </td>
                     <td style={{ color: '#7C7461', fontSize: 'var(--text-xs)' }}>
-                      {new Date(user.joinedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {user.joinedDate ? new Date(user.joinedDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
                     </td>
                     <td style={{ fontWeight: 600 }}>{user.tripsCount}</td>
                     <td style={{ fontWeight: 600, color: 'var(--color-emerald)' }}>
-                      ₹{user.totalSpend.toLocaleString('en-IN')}
+                      ₹{Number(user.totalSpend ?? 0).toLocaleString('en-IN')}
                     </td>
-                    <td style={{ color: '#A39E8E', fontSize: 'var(--text-xs)' }}>{user.lastActive}</td>
+                    <td style={{ color: '#A39E8E', fontSize: 'var(--text-xs)' }}>{formatIST(user.lastActive)}</td>
                     <td>
                       <div className="table-actions">
                         <button
                           className="btn btn-secondary btn-sm"
-                          onClick={() => setSelectedUser(user)}
+                          onClick={() => { setNewPassword(''); setSelectedUser(user); }}
                           style={{ gap: 4 }}
                         >
                           <Eye size={13} />
@@ -214,18 +302,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
             <div className="drawer-body">
               {/* Avatar + Name */}
               <div className="drawer-profile-hero">
-                <div
-                  className="avatar avatar-lg"
-                  style={{
-                    background: selectedUser.avatarColor + '22',
-                    color: selectedUser.avatarColor,
-                    width: 64, height: 64,
-                    fontSize: 'var(--text-xl)',
-                    borderRadius: 'var(--radius-lg)',
-                  }}
-                >
-                  {selectedUser.avatarInitials}
-                </div>
+                {renderAvatar(selectedUser, 'lg')}
                 <div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                     <h2 style={{ fontFamily: 'var(--font-serif)', fontSize: 'var(--text-xl)', fontWeight: 600 }}>
@@ -252,8 +329,12 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                   { icon: <Phone size={14} />, label: 'Phone', val: selectedUser.phone },
                   { icon: <Wallet size={14} />, label: 'UPI ID', val: selectedUser.upiId ?? 'Not set' },
                   { icon: <MapPin size={14} />, label: 'Travel Style', val: selectedUser.travelStyle ?? '—' },
-                  { icon: <TrendingUp size={14} />, label: 'Total Spend', val: `₹${selectedUser.totalSpend.toLocaleString('en-IN')}` },
-                  { icon: <Clock size={14} />, label: 'Last Active', val: selectedUser.lastActive },
+                  { icon: <BadgeCheck size={14} />, label: 'Account Type', val: selectedUser.isTemp ? 'Temporary' : 'Registered' },
+                  { icon: <Wallet size={14} />, label: 'Currency', val: selectedUser.currency ?? '—' },
+                  { icon: <Clock size={14} />, label: 'Date of Birth', val: selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString('en-IN') : '—' },
+                  { icon: <ShieldOff size={14} />, label: 'Avatar', val: selectedUser.avatar ?? 'Not set' },
+                  { icon: <TrendingUp size={14} />, label: 'Total Spend', val: `₹${Number(selectedUser.totalSpend ?? 0).toLocaleString('en-IN')}` },
+                  { icon: <Clock size={14} />, label: 'Last Active', val: formatIST(selectedUser.lastActive) },
                 ].map((row) => (
                   <div key={row.label} className="drawer-info-row">
                     <span className="drawer-info-icon">{row.icon}</span>
@@ -274,7 +355,7 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                   <span className="drawer-stat-label">Trips Organized</span>
                 </div>
                 <div className="drawer-stat">
-                  <span className="drawer-stat-val">₹{selectedUser.totalSpend.toLocaleString('en-IN')}</span>
+                  <span className="drawer-stat-val">₹{Number(selectedUser.totalSpend ?? 0).toLocaleString('en-IN')}</span>
                   <span className="drawer-stat-label">Total Platform Spend</span>
                 </div>
               </div>
@@ -289,12 +370,6 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                 >
                   {selectedUser.status === 'Active' ? <UserX size={15} /> : <UserCheck size={15} />}
                   {selectedUser.status === 'Active' ? 'Suspend Account' : 'Reactivate Account'}
-                </button>
-                <button
-                  className="btn btn-secondary"
-                  onClick={() => handleResetPassword(selectedUser)}
-                >
-                  <KeyRound size={15} /> Send Password Reset
                 </button>
               </div>
             </div>

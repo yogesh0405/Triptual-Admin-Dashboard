@@ -11,6 +11,7 @@ interface SidebarProps {
   onNavigate: (page: AdminPage) => void;
   collapsed: boolean;
   onToggle: () => void;
+  userCount?: number;
 }
 
 interface NavItem {
@@ -25,7 +26,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: 'Core Operations',
     items: [
       { id: 'dashboard', label: 'Dashboard & Analytics', icon: <LayoutDashboard size={18} /> },
-      { id: 'users', label: 'User Management', icon: <Users size={18} />, badge: '10' },
+      { id: 'users', label: 'User Management', icon: <Users size={18} /> },
     ],
   },
   {
@@ -44,7 +45,12 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, onToggle }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, onToggle, userCount }) => {
+  const navItems = [
+    { id: 'dashboard', label: 'Dashboard & Analytics', icon: <LayoutDashboard size={18} /> },
+    { id: 'users', label: 'User Management', icon: <Users size={18} />, badge: userCount !== undefined ? String(userCount) : undefined },
+  ];
+
   return (
     <aside className={`sidebar ${collapsed ? 'sidebar--collapsed' : ''}`}>
       {/* Brand Header */}
@@ -67,32 +73,35 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, on
 
       {/* Navigation */}
       <nav className="sidebar-nav">
-        {NAV_SECTIONS.map((section) => (
-          <div key={section.title} className="sidebar-section">
-            {!collapsed && <span className="sidebar-section-title">{section.title}</span>}
-            <ul className="sidebar-nav-list">
-              {section.items.map((item) => (
-                <li key={item.id}>
-                  <button
-                    className={`sidebar-nav-item ${activePage === item.id ? 'sidebar-nav-item--active' : ''}`}
-                    onClick={() => onNavigate(item.id)}
-                    title={collapsed ? item.label : undefined}
-                  >
-                    <span className="sidebar-nav-icon">{item.icon}</span>
-                    {!collapsed && (
-                      <>
-                        <span className="sidebar-nav-label">{item.label}</span>
-                        {item.badge && (
-                          <span className="sidebar-nav-badge">{item.badge}</span>
-                        )}
-                      </>
-                    )}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ))}
+        {NAV_SECTIONS.map((section) => {
+          const items = section.title === 'Core Operations' ? navItems : section.items;
+          return (
+            <div key={section.title} className="sidebar-section">
+              {!collapsed && <span className="sidebar-section-title">{section.title}</span>}
+              <ul className="sidebar-nav-list">
+                {items.map((item) => (
+                  <li key={item.id}>
+                    <button
+                      className={`sidebar-nav-item ${activePage === item.id ? 'sidebar-nav-item--active' : ''}`}
+                      onClick={() => onNavigate(item.id)}
+                      title={collapsed ? item.label : undefined}
+                    >
+                      <span className="sidebar-nav-icon">{item.icon}</span>
+                      {!collapsed && (
+                        <>
+                          <span className="sidebar-nav-label">{item.label}</span>
+                          {item.badge && (
+                            <span className="sidebar-nav-badge">{item.badge}</span>
+                          )}
+                        </>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
 
       {/* Footer Admin Profile */}

@@ -1,11 +1,12 @@
 import React from 'react';
-import { Search, Bell, ChevronRight, Zap } from 'lucide-react';
+import { Search, Bell, ChevronRight, Zap, LogOut } from 'lucide-react';
 import type { AdminPage } from '../types';
 import './TopHeader.css';
 
 interface TopHeaderProps {
   activePage: AdminPage;
   onShowNotifications?: () => void;
+  onLogout?: () => void;
 }
 
 const PAGE_LABELS: Record<AdminPage, string> = {
@@ -17,7 +18,7 @@ const PAGE_LABELS: Record<AdminPage, string> = {
   notifications: 'Broadcast Notifications',
 };
 
-const TopHeader: React.FC<TopHeaderProps> = ({ activePage }) => {
+const TopHeader: React.FC<TopHeaderProps> = ({ activePage, onLogout }) => {
   const [searchValue, setSearchValue] = React.useState('');
 
   return (
@@ -59,6 +60,9 @@ const TopHeader: React.FC<TopHeaderProps> = ({ activePage }) => {
         <button className="header-notif-btn btn-icon" aria-label="Notifications">
           <Bell size={17} />
           <span className="header-notif-dot" />
+        </button>
+        <button className="btn-icon" aria-label="Sign out" title="Sign out" onClick={onLogout}>
+          <LogOut size={16} />
         </button>
       </div>
     </header>
