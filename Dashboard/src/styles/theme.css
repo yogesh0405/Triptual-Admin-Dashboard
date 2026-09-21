@@ -1,0 +1,99 @@
+/* ============================================================
+   TRIPTUAL ADMIN — Design System Token Architecture
+   Warm Editorial & Luxury Travel Theme
+   ============================================================ */
+
+:root {
+  /* ── Backgrounds ── */
+  --bg-app: #FAF8F5;
+  --bg-surface: #FFFFFF;
+  --bg-surface-warm: #F6F3EC;
+  --bg-surface-subtle: #F2EFE8;
+  --bg-sidebar: #3A4220;
+  --bg-sidebar-hover: #48512A;
+  --bg-sidebar-active: #545E30;
+
+  /* ── Brand / Accent Colors ── */
+  --accent-olive-dark: #2E331B;
+  --accent-olive: #464B29;
+  --accent-olive-light: #5C6334;
+  --accent-chartreuse: #E5EC68;
+  --accent-chartreuse-dim: #CDD44E;
+
+  /* ── Semantic Colors ── */
+  --color-emerald: #059669;
+  --color-emerald-bg: #ECFDF5;
+  --color-emerald-border: #A7F3D0;
+  --color-amber: #D97706;
+  --color-amber-bg: #FFFBEB;
+  --color-amber-border: #FDE68A;
+  --color-rose: #E11D48;
+  --color-rose-bg: #FFF1F2;
+  --color-rose-border: #FECDD3;
+  --color-blue: #2563EB;
+  --color-blue-bg: #EFF6FF;
+  --color-blue-border: #BFDBFE;
+  --color-purple: #7C3AED;
+  --color-purple-bg: #F5F3FF;
+
+  /* ── Typography ── */
+  --font-serif: 'Fraunces', 'Playfair Display', Georgia, serif;
+  --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif;
+
+  /* ── Font Sizes ── */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.9375rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  /* ── Font Weights ── */
+  --fw-light: 300;
+  --fw-regular: 400;
+  --fw-medium: 500;
+  --fw-semibold: 600;
+  --fw-bold: 700;
+
+  /* ── Borders ── */
+  --border-card: #E8E4DA;
+  --border-input: #D6D0C4;
+  --border-sidebar: #4A5430;
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
+  --radius-pill: 999px;
+
+  /* ── Shadows ── */
+  --shadow-xs: 0 1px 2px rgba(46,51,27,0.04);
+  --shadow-sm: 0 1px 4px rgba(46,51,27,0.06), 0 1px 2px rgba(46,51,27,0.04);
+  --shadow-md: 0 4px 12px rgba(46,51,27,0.08), 0 2px 4px rgba(46,51,27,0.04);
+  --shadow-lg: 0 12px 32px rgba(46,51,27,0.12), 0 4px 8px rgba(46,51,27,0.06);
+  --shadow-xl: 0 24px 48px rgba(46,51,27,0.16), 0 8px 16px rgba(46,51,27,0.08);
+
+  /* ── Spacing ── */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+
+  /* ── Transitions ── */
+  --transition-fast: 0.15s ease;
+  --transition-base: 0.2s ease;
+  --transition-slow: 0.3s ease;
+  --transition-spring: 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ── Sidebar dimensions ── */
+  --sidebar-width: 256px;
+  --sidebar-collapsed-width: 72px;
+  --header-height: 64px;
+}
