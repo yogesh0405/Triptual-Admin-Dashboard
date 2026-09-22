@@ -1,3 +1,13 @@
 node_modules/
 .env
+.env.*
+!.env.example
 *.log
+
+# Firebase & Secrets
+*firebase*.json
+firebase-service-account*.json
+google-services.json
+GoogleService-Info.plist
+.firebase/
+gool

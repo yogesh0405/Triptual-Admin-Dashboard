@@ -4,6 +4,13 @@ dist
 .env.*
 !.env.example
 
+# Firebase & Secrets
+*firebase*.json
+firebase-service-account*.json
+google-services.json
+GoogleService-Info.plist
+.firebase/
+
 # ── Dependencies ──────────────────────────────────────────
 node_modules/
 .pnp

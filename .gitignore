@@ -8,9 +8,22 @@ Dashboard/node_modules/
 # Environment files and secrets
 **/.env
 **/.env.*
+**/.env.local
+**/.env.development
+**/.env.production
+**/.env.test
+!.env.example
 !**/.env.example
 !**/.env.*.example
 backend/env/
+
+# Firebase & Secrets
+*firebase*.json
+firebase-service-account*.json
+google-services.json
+GoogleService-Info.plist
+.firebase/
+gool
 
 # Private keys and certificates
 *.pem
