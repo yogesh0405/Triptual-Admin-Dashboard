@@ -27,7 +27,7 @@ async function start() {
   validateEnv();
   await ensureAuthTables();
   await seedAdmin();
-  app.listen(env.port, () => console.log(`Admin API listening on http://localhost:${env.port}`));
+  app.listen(env.port, '0.0.0.0', () => console.log(`Admin API listening on port ${env.port}`));
 }
 
 start().catch((error) => { console.error(error); process.exit(1); });
