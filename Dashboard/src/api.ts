@@ -25,13 +25,31 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
   headers.set('Content-Type', 'application/json');
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
   const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
-  const response = await fetch(url, { ...init, headers, credentials: 'include' });
-  if (response.status === 401 && retry && path !== '/api/auth/refresh') {
+
+  let response: Response;
+  try {
+    response = await fetch(url, { ...init, headers, credentials: 'include' });
+  } catch (err) {
+    throw new Error('Network error: Unable to reach backend server');
+  }
+
+  if (response.status === 401 && retry && path !== '/api/auth/refresh' && path !== '/api/auth/login') {
     const refreshed = await refresh();
     if (refreshed) return request<T>(path, init, false);
   }
-  const body = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(body.error ?? 'Request failed');
+
+  const text = await response.text();
+  let body: any = {};
+  try {
+    body = JSON.parse(text);
+  } catch {
+    body = {};
+  }
+
+  if (!response.ok) {
+    const errorMsg = body.error || body.message || (text && text.length < 100 ? text : `Request failed (${response.status})`);
+    throw new Error(errorMsg);
+  }
   return body as T;
 }
 
