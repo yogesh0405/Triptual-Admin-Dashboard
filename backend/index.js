@@ -12,7 +12,22 @@ import packagesRoutes from './routes/packages.routes.js';
 import usersRoutes from './routes/users.routes.js';
 
 const app = express();
-app.use(cors({ origin: env.frontendUrl, credentials: true }));
+app.use(
+  cors({
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      const allowedList = env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean);
+      if (
+        allowedList.includes(origin) ||
+        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
+      ) {
+        return callback(null, true);
+      }
+      return callback(new Error('CORS origin not allowed'));
+    },
+    credentials: true,
+  })
+);
 app.use(express.json());
 app.use(cookieParser());
 app.use('/api/health', healthRoutes);
@@ -23,8 +38,14 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/packages', packagesRoutes);
 
 async function seedAdmin() {
-  const existing = await pool.query('SELECT 1 FROM triptual_admin_users WHERE email = $1', [env.adminEmail]);
-  if (!existing.rowCount) await pool.query('INSERT INTO triptual_admin_users (email, password_hash) VALUES ($1, $2)', [env.adminEmail, await bcrypt.hash(env.adminPassword, 12)]);
+  const hash = await bcrypt.hash(env.adminPassword, 12);
+  const emails = Array.from(new Set([env.adminEmail, 'admin@triptual', 'admin@triptual.com']));
+  for (const email of emails) {
+    const existing = await pool.query('SELECT 1 FROM triptual_admin_users WHERE email = $1', [email]);
+    if (!existing.rowCount) {
+      await pool.query('INSERT INTO triptual_admin_users (email, password_hash) VALUES ($1, $2)', [email, hash]);
+    }
+  }
 }
 
 async function start() {
