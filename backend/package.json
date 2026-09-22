@@ -4,7 +4,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "node --watch index.js"
+    "dev": "node --watch index.js",
+    "build": "echo 'No build step required for Node.js backend'"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
