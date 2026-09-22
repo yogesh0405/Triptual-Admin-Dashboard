@@ -81,3 +81,31 @@ export async function updateUserPassword(req, res) {
   if (!result.rowCount) return res.status(404).json({ error: 'User not found' });
   return res.json({ ok: true });
 }
+
+export async function registerPushToken(req, res) {
+  const { userId, token, deviceType = 'android' } = req.body;
+  if (!userId || !token) return res.status(400).json({ error: 'userId and token are required' });
+
+  try {
+    const table = await findUsersTable();
+    if (table) {
+      const usersTable = quoteIdentifier(table.name);
+      const idCol = firstColumn(table.columns, ['id', 'user_id']) ?? 'id';
+      const pushCol = firstColumn(table.columns, ['push_token', 'device_token', 'fcm_token']) ?? 'push_token';
+      await pool.query(`UPDATE ${usersTable} SET ${quoteIdentifier(pushCol)} = $1 WHERE ${quoteIdentifier(idCol)}::text = $2`, [token, userId]);
+    }
+
+    const pushTables = await tableColumns(['user_push_tokens']);
+    if (pushTables.has('user_push_tokens')) {
+      await pool.query(`
+        INSERT INTO user_push_tokens (user_id, token, device_type, created_at, updated_at)
+        VALUES ($1, $2, $3, NOW(), NOW())
+      `, [userId, token, deviceType]).catch(() => undefined);
+    }
+
+    return res.json({ success: true, message: 'FCM push token registered successfully' });
+  } catch (error) {
+    console.error('❌ Error registering push token:', error);
+    return res.status(500).json({ error: 'Failed to register push token' });
+  }
+}

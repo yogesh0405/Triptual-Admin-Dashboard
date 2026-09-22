@@ -7,6 +7,8 @@ import { env, validateEnv } from './utils/env.js';
 import authRoutes from './routes/auth.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import healthRoutes from './routes/health.routes.js';
+import notificationsRoutes from './routes/notifications.routes.js';
+import packagesRoutes from './routes/packages.routes.js';
 import usersRoutes from './routes/users.routes.js';
 
 const app = express();
@@ -17,6 +19,8 @@ app.use('/api/health', healthRoutes);
 app.use('/api/auth', authRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', usersRoutes);
+app.use('/api/notifications', notificationsRoutes);
+app.use('/api/packages', packagesRoutes);
 
 async function seedAdmin() {
   const existing = await pool.query('SELECT 1 FROM triptual_admin_users WHERE email = $1', [env.adminEmail]);

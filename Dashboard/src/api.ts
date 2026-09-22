@@ -58,6 +58,80 @@ export async function logout() {
 }
 
 export const getDashboard = () => request<DashboardData>('/api/dashboard');
+export const getUsersList = () => request<{ users: MockUser[]; total: number }>('/api/users');
+
+export interface AudienceCountResponse {
+  success: boolean;
+  audience: string;
+  totalUsers: number;
+  pushTokenCount: number;
+  emailCount: number;
+  inAppCount: number;
+}
+
+export interface BroadcastPayload {
+  title: string;
+  body: string;
+  channels: ('push' | 'inapp' | 'email')[];
+  targetAudience: string;
+  actionUrl?: string;
+  category?: string;
+}
+
+export interface BroadcastHistoryItem {
+  id: string;
+  title: string;
+  body: string;
+  channels: ('push' | 'inapp' | 'email')[];
+  target_audience: string;
+  action_url?: string;
+  category?: string;
+  stats: {
+    targetedUsers: number;
+    pushSent: number;
+    pushFailed: number;
+    inappCreated: number;
+    emailSent: number;
+    emailFailed: number;
+    isSimulatedPush?: boolean;
+  };
+  created_at: string;
+}
+
+export const getAudienceCount = (audience: string) =>
+  request<AudienceCountResponse>(`/api/notifications/audience-count?audience=${encodeURIComponent(audience)}`);
+
+export const sendBroadcastNotification = (payload: BroadcastPayload) =>
+  request<{ success: boolean; message: string; stats: BroadcastHistoryItem['stats'] }>('/api/notifications/broadcast', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const getBroadcastHistoryLog = () =>
+  request<{ success: boolean; broadcasts: BroadcastHistoryItem[] }>('/api/notifications/broadcasts');
 export const getUsers = () => request<{ users: MockUser[]; total: number }>('/api/users');
 export const updateUserStatus = (id: string, status: string) => request(`/api/users/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 export const updateUserPassword = (id: string, password: string) => request<{ ok: boolean }>('/api/users/' + encodeURIComponent(id) + '/password', { method: 'PATCH', body: JSON.stringify({ password }) });
+
+// Tour Package API calls
+export const getTourPackages = (status = 'All', search = '') =>
+  request<{ success: boolean; packages: any[]; total: number }>(
+    `/api/packages?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`
+  );
+
+export const createTourPackage = (payload: any) =>
+  request<{ success: boolean; message: string; package: any }>('/api/packages', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+
+export const updateTourPackageStatus = (id: string, status: string) =>
+  request<{ success: boolean; message: string; package: any }>(`/api/packages/${encodeURIComponent(id)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
+
+export const deleteTourPackage = (id: string) =>
+  request<{ success: boolean; message: string }>(`/api/packages/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
