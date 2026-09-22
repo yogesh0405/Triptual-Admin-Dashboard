@@ -18,11 +18,14 @@ export const setAccessToken = (token: string | null) => {
   else localStorage.removeItem(ACCESS_KEY);
 };
 
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string) ?? '';
+
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const response = await fetch(path, { ...init, headers, credentials: 'include' });
+  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const response = await fetch(url, { ...init, headers, credentials: 'include' });
   if (response.status === 401 && retry && path !== '/api/auth/refresh') {
     const refreshed = await refresh();
     if (refreshed) return request<T>(path, init, false);

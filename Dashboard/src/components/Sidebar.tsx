@@ -83,7 +83,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, on
                   <li key={item.id}>
                     <button
                       className={`sidebar-nav-item ${activePage === item.id ? 'sidebar-nav-item--active' : ''}`}
-                      onClick={() => onNavigate(item.id)}
+                      onClick={() => onNavigate(item.id as AdminPage)}
                       title={collapsed ? item.label : undefined}
                     >
                       <span className="sidebar-nav-icon">{item.icon}</span>
