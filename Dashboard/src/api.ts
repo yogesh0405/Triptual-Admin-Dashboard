@@ -18,7 +18,7 @@ export const setAccessToken = (token: string | null) => {
   else localStorage.removeItem(ACCESS_KEY);
 };
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) ?? '';
+const API_BASE_URL = (((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
 if (!API_BASE_URL) {
   console.warn(
     '[Triptual Admin] VITE_API_BASE_URL is not set. ' +
