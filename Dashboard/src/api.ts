@@ -18,7 +18,14 @@ export const setAccessToken = (token: string | null) => {
   else localStorage.removeItem(ACCESS_KEY);
 };
 
-const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string) ?? '';
+const API_BASE_URL = ((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) ?? '';
+if (!API_BASE_URL) {
+  console.warn(
+    '[Triptual Admin] VITE_API_BASE_URL is not set. ' +
+    'API calls will fail in production. ' +
+    'Add VITE_API_BASE_URL=https://your-backend.onrender.com to Vercel environment variables.'
+  );
+}
 
 async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const headers = new Headers(init.headers);
@@ -28,7 +35,10 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
   let response: Response;
   try {
-    response = await fetch(url, { ...init, headers, credentials: 'include' });
+    // credentials:'include' is required for cookie-based refresh tokens.
+    // This works cross-origin only when backend has FRONTEND_URL set to this origin.
+    const isCrossOrigin = API_BASE_URL && !API_BASE_URL.startsWith('/');
+    response = await fetch(url, { ...init, headers, credentials: isCrossOrigin ? 'include' : 'same-origin' });
   } catch (err) {
     throw new Error('Network error: Unable to reach backend server');
   }

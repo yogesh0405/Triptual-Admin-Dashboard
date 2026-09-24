@@ -15,14 +15,14 @@ const app = express();
 app.use(
   cors({
     origin: (origin, callback) => {
-      if (!origin) return callback(null, true);
+      if (!origin) return callback(null, true); // Allow server-to-server / curl
       const allowedList = env.frontendUrl.split(',').map((u) => u.trim()).filter(Boolean);
-      if (
-        allowedList.includes(origin) ||
-        /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin)
-      ) {
+      const isLocalhost = /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(origin);
+      const isVercel = /^https:\/\/[a-zA-Z0-9-]+\.vercel\.app$/.test(origin);
+      if (allowedList.includes(origin) || isLocalhost || isVercel) {
         return callback(null, true);
       }
+      console.warn(`[CORS] Blocked origin: ${origin}`);
       return callback(new Error('CORS origin not allowed'));
     },
     credentials: true,
