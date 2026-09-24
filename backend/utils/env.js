@@ -14,6 +14,10 @@ export const env = {
   adminEmail: (process.env.ADMIN_EMAIL).toLowerCase(),
   adminPassword: process.env.ADMIN_PASSWORD,
   nodeEnv: process.env.NODE_ENV ?? 'development',
+  kafkaBroker: process.env.KAFKA_BROKER || '',
+  kafkaUsername: process.env.KAFKA_USERNAME || '',
+  kafkaPassword: process.env.KAFKA_PASSWORD || '',
+  kafkaTopic: process.env.KAFKA_TOPIC || 'notification-events',
 };
 
 export function validateEnv() {

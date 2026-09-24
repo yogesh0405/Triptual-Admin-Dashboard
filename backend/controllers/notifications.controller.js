@@ -1,6 +1,7 @@
 import { firstColumn, pool, quoteIdentifier, tableColumns } from '../modules/db.js';
 import { getMessaging } from '../utils/firebase.js';
 import { sendAdminBroadcastEmail } from '../utils/mail.util.js';
+import { publishNotificationEvent } from '../utils/kafka.js';
 
 async function findUsersTable() {
   const tables = await tableColumns(['users', 'user', 'accounts', 'profiles']);
@@ -226,6 +227,25 @@ export async function sendBroadcast(req, res) {
         }
       }
       console.log(`✅ [Email Dispatch] Processed ${emailUsers.length} emails. Sent: ${stats.emailSent}, Failed: ${stats.emailFailed}`);
+    }
+
+    // ── Channel 4: Kafka Notification Engine Event Stream ──
+    try {
+      const kafkaRes = await publishNotificationEvent('SYSTEM_ALERT', {
+        userId: null, // Broadcast to all target users
+        title,
+        body,
+        channels,
+        targetAudience,
+        actionUrl,
+        category,
+        data: { source: 'ADMIN_DASHBOARD' }
+      });
+      stats.kafkaEventQueued = kafkaRes.success;
+      if (kafkaRes.eventId) stats.kafkaEventId = kafkaRes.eventId;
+    } catch (kErr) {
+      console.warn('⚠️ [Kafka Dispatch Error]:', kErr.message);
+      stats.kafkaEventQueued = false;
     }
 
     // ── Save Broadcast Log Record ──
