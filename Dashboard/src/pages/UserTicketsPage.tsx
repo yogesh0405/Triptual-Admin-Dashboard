@@ -54,6 +54,7 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
   const [messages, setMessages] = useState<TicketMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const sendInFlightRef = useRef(false);
   const [draftMessage, setDraftMessage] = useState('');
   const [draftAttachment, setDraftAttachment] = useState<File | null>(null);
 
@@ -81,8 +82,10 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     });
 
     const unsubMsg = onTicketMessage((payload) => {
-      const msg: TicketMessage = payload.message || payload;
-      const tNum = payload.ticketNumber || msg?.ticketNumber;
+      const msg: TicketMessage = payload?.message && typeof payload.message === 'object'
+        ? payload.message
+        : payload;
+      const tNum = payload?.ticketNumber || msg?.ticketNumber;
 
       // Update in active chat if viewing this ticket
       if (selectedTicket && (tNum === selectedTicket.ticketNumber || msg?.ticketId === selectedTicket.id)) {
@@ -149,11 +152,7 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       const res = await getTickets(statusFilter, categoryFilter, searchQuery);
       if (res && res.tickets) {
         setTickets(res.tickets);
-        joinTicketRooms(
-          res.tickets
-            .filter((ticket) => !['RESOLVED', 'CLOSED'].includes(ticket.status))
-            .map((ticket) => ticket.ticketNumber)
-        );
+        joinTicketRooms(res.tickets.map((ticket) => ticket.ticketNumber));
         if (res.stats) {
           setStats(res.stats);
           if (onTicketCountChange) {
@@ -255,7 +254,9 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     if (e) e.preventDefault();
     if (!selectedTicket) return;
     if (!draftMessage.trim() && !draftAttachment) return;
+    if (sendInFlightRef.current) return;
 
+    sendInFlightRef.current = true;
     setIsSending(true);
     const textToSend = draftMessage.trim();
     const fileToSend = draftAttachment;
@@ -298,6 +299,7 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     } catch (err: any) {
       onToast({ message: err.message || 'Failed to send response', type: 'error' });
     } finally {
+      sendInFlightRef.current = false;
       setIsSending(false);
       setTimeout(() => textareaRef.current?.focus(), 50);
     }

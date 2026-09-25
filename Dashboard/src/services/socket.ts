@@ -18,7 +18,7 @@ export function getSocketUrl(): string {
     }
   }
 
-  return 'https://triptual-api.onrender.com';
+  return 'https://hackcelestial-api.onrender.com';
 }
 
 /**
@@ -101,7 +101,14 @@ export function leaveTicketRoom(ticketNumber: string) {
  */
 export function onTicketMessage(callback: (payload: any) => void) {
   const s = getSocket();
+  const seenMessageIds = new Set<string>();
   const handler = (data: any) => {
+    const message = data?.message && typeof data.message === 'object' ? data.message : data;
+    if (message?.id) {
+      if (seenMessageIds.has(String(message.id))) return;
+      seenMessageIds.add(String(message.id));
+      if (seenMessageIds.size > 2000) seenMessageIds.clear();
+    }
     callback(data);
   };
   s.on('ticket:message', handler);
@@ -129,6 +136,15 @@ export function onTicketStatusChange(callback: (data: any) => void) {
   s.on('ticket:status_change', handler);
   return () => {
     s.off('ticket:status_change', handler);
+  };
+}
+
+export function onTicketCreated(callback: (data: any) => void) {
+  const s = getSocket();
+  const handler = (data: any) => callback(data);
+  s.on('ticket:created', handler);
+  return () => {
+    s.off('ticket:created', handler);
   };
 }
 
