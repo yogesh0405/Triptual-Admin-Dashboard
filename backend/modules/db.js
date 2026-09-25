@@ -1,19 +1,31 @@
 import { Pool } from 'pg';
 import { env } from '../utils/env.js';
 
-const connectionString = env.databaseUrl.includes('sslmode=require') && !env.databaseUrl.includes('uselibpqcompat')
-  ? `${env.databaseUrl}&uselibpqcompat=true`
-  : env.databaseUrl;
+const databaseUrl = env.databaseUrl || '';
+const requiresSsl = /(?:^|[?&])sslmode=require(?:$|[&])/.test(databaseUrl) || /neon\.tech|render\.com|supabase\.co/.test(databaseUrl);
+const connectionString = databaseUrl.includes('sslmode=require') && !databaseUrl.includes('uselibpqcompat')
+  ? `${databaseUrl}&uselibpqcompat=true`
+  : databaseUrl;
 
 export const pool = new Pool({
   connectionString,
-  max: 10,
-  idleTimeoutMillis: 30_000,
-  connectionTimeoutMillis: 10_000,
-  ssl: env.databaseUrl.includes('sslmode=require') ? { rejectUnauthorized: false } : undefined,
+  max: 5,
+  idleTimeoutMillis: 60_000,
+  connectionTimeoutMillis: 20_000,
+  keepAlive: true,
+  keepAliveInitialDelayMillis: 10_000,
+  ssl: requiresSsl ? { rejectUnauthorized: false } : undefined,
+});
+
+pool.on('error', (error) => {
+  console.error('[Postgres pool] unexpected error:', error.message);
 });
 
 export const quoteIdentifier = (value) => `"${value.replace(/"/g, '""')}"`;
+
+export async function pingDatabase() {
+  await pool.query('SELECT 1');
+}
 
 export async function tableColumns(candidates) {
   const result = await pool.query(`SELECT table_name, column_name FROM information_schema.columns WHERE table_schema = 'public' AND lower(table_name) = ANY($1::text[])`, [candidates.map((name) => name.toLowerCase())]);

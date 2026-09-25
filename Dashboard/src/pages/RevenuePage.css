@@ -1,9 +1,15 @@
 .revenue-page { display: flex; flex-direction: column; gap: var(--space-4); }
-.revenue-summary-card { padding: var(--space-5); display: flex; flex-direction: column; gap: 6px; }
+.revenue-kpi-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.revenue-summary-card { padding: var(--space-5); display: flex; flex-direction: column; gap: 6px; min-width: 0; }
 .revenue-summary-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.revenue-metric { display: flex; align-items: center; gap: var(--space-3); min-height: 52px; }
+.revenue-metric .kpi-value { white-space: nowrap; }
 .tx-id { font-family: 'Courier New', monospace; font-size: var(--text-xs); font-weight: 600; color: var(--accent-olive-dark); }
 .tx-utr { font-size: 10px; color: #A39E8E; margin-top: 2px; font-family: monospace; }
 .tx-user { display: flex; flex-direction: column; gap: 2px; }
+.tx-user-heading { display: flex; align-items: center; gap: 8px; }
+.tx-user-avatar { width: 28px; height: 28px; border-radius: 50%; object-fit: cover; flex: 0 0 28px; }
+.tx-user-avatar-fallback { display: inline-flex; align-items: center; justify-content: center; background: var(--accent-olive); color: white; font-size: 10px; font-weight: 700; }
 .tx-user-name { font-weight: var(--fw-semibold); font-size: var(--text-sm); }
 .tx-user-email { font-size: var(--text-xs); color: #7C7461; }
 .tx-amount { font-weight: var(--fw-bold); font-size: var(--text-sm); }

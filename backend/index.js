@@ -2,7 +2,7 @@ import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
-import { ensureAuthTables, ensureSupportMessageSchema, pool } from './modules/db.js';
+import { ensureAuthTables, ensureSupportMessageSchema, pingDatabase, pool } from './modules/db.js';
 import { env, validateEnv } from './utils/env.js';
 import authRoutes from './routes/auth.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
@@ -39,6 +39,14 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/packages', packagesRoutes);
 app.use('/api/tickets', ticketsRoutes);
 
+app.use((error, _req, res, _next) => {
+  console.error('[Express] Unhandled API error:', error);
+  if (res.headersSent) {
+    return;
+  }
+  res.status(500).json({ error: 'Internal server error' });
+});
+
 async function seedAdmin() {
   const hash = await bcrypt.hash(env.adminPassword, 12);
   const emails = Array.from(new Set([env.adminEmail, 'admin@triptual', 'admin@triptual.com']));
@@ -52,6 +60,7 @@ async function seedAdmin() {
 
 async function start() {
   validateEnv();
+  await pingDatabase();
   await ensureAuthTables();
   await ensureSupportMessageSchema();
   await seedAdmin();

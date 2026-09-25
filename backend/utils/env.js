@@ -11,8 +11,8 @@ export const env = {
   jwtSecret: process.env.JWT_SECRET ?? '',
   port: Number(process.env.PORT ?? 3001),
   frontendUrl: process.env.FRONTEND_URL ?? 'http://localhost:5174',
-  adminEmail: (process.env.ADMIN_EMAIL).toLowerCase(),
-  adminPassword: process.env.ADMIN_PASSWORD,
+  adminEmail: process.env.ADMIN_EMAIL?.trim().toLowerCase() ?? '',
+  adminPassword: process.env.ADMIN_PASSWORD ?? '',
   nodeEnv: process.env.NODE_ENV ?? 'development',
   kafkaBroker: process.env.KAFKA_BROKER || '',
   kafkaUsername: process.env.KAFKA_USERNAME || '',
@@ -21,5 +21,10 @@ export const env = {
 };
 
 export function validateEnv() {
-  if (!env.databaseUrl || !env.jwtSecret) throw new Error('DATABASE_URL and JWT_SECRET are required');
+  const missing = [];
+  if (!env.databaseUrl) missing.push('DATABASE_URL');
+  if (!env.jwtSecret) missing.push('JWT_SECRET');
+  if (!env.adminEmail) missing.push('ADMIN_EMAIL');
+  if (!env.adminPassword) missing.push('ADMIN_PASSWORD');
+  if (missing.length) throw new Error(`Missing required environment variables: ${missing.join(', ')}`);
 }

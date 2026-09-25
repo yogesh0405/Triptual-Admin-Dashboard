@@ -1,11 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Download, Search, Filter, CheckCircle2,
-  Clock, XCircle, IndianRupee, Percent,
+  Clock, XCircle, IndianRupee,
   Zap, CreditCard, ArrowUpRight,
 } from 'lucide-react';
-import { MOCK_TRANSACTIONS } from '../data/mockData';
-import type { PaymentStatus, PaymentType, ToastMessage } from '../types';
+import { getDashboard } from '../api';
+import type { MockTransaction, PaymentStatus, PaymentType, ToastMessage } from '../types';
 import './RevenuePage.css';
 
 interface RevenuePageProps {
@@ -28,19 +28,69 @@ const TYPE_BADGE: Record<PaymentType, string> = {
   REFUND: 'badge badge-danger',
 };
 
-const SUMMARY_CARDS = [
-  { label: 'Total Gross Volume', value: '₹3,159', sub: '166 transactions', icon: <IndianRupee size={20} />, color: '#2E331B', bg: '#E5EC68' },
-  { label: 'Net Platform Fees', value: '₹2,850', sub: 'After refunds & fees', icon: <CreditCard size={20} />, color: '#059669', bg: '#ECFDF5' },
-  { label: 'Gateway Success Rate', value: '99.4%', sub: '158 / 159 processed', icon: <Percent size={20} />, color: '#2563EB', bg: '#EFF6FF' },
-  { label: 'Avg Settlement Time', value: '2.4s', sub: 'Razorpay UPI median', icon: <Zap size={20} />, color: '#D97706', bg: '#FFFBEB' },
-];
+const formatCurrency = (value: number) => `₹${Math.round(value).toLocaleString('en-IN')}`;
+
+function toTransaction(transaction: {
+  transactionId: string | null;
+  userId: string | null;
+  userName: string;
+  userEmail: string;
+  userAvatar: string | null;
+  groupId: string | null;
+  amount: number;
+  paymentMethod: string;
+  status: string;
+  createdAt: string;
+}): MockTransaction {
+  const normalizedStatus = transaction.status.toUpperCase();
+  return {
+    id: transaction.transactionId || `${transaction.createdAt}-${transaction.amount}`,
+    transactionId: transaction.transactionId || 'Unassigned',
+    userName: transaction.userName,
+    userEmail: transaction.userEmail,
+    userAvatar: transaction.userAvatar,
+    tripDestination: transaction.groupId || 'Group upgrade',
+    type: 'PRO_TIER_UPGRADE',
+    amount: transaction.amount,
+    paymentMethod: transaction.paymentMethod as MockTransaction['paymentMethod'],
+    status: (['SUCCESS', 'PENDING', 'FAILED'].includes(normalizedStatus) ? normalizedStatus : 'PENDING') as PaymentStatus,
+    timestamp: transaction.createdAt,
+    groupId: transaction.groupId || undefined,
+  };
+}
+
+const resolveAvatarUrl = (avatar: string | null) => {
+  if (!avatar) return null;
+  const cleaned = avatar.trim();
+  if (!cleaned) return null;
+  if (cleaned.startsWith('http://') || cleaned.startsWith('https://') || cleaned.startsWith('/')) return cleaned;
+
+  const fileName = cleaned.split(/[\\/]/).pop() ?? cleaned;
+  const noExt = fileName.includes('.') ? fileName.slice(0, fileName.lastIndexOf('.')) : fileName;
+  const imageName = noExt.startsWith('ill_') ? noExt : `ill_${noExt}`;
+  return `/illustrations/${imageName}.jpg`;
+};
 
 const RevenuePage: React.FC<RevenuePageProps> = ({ onToast }) => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [transactions, setTransactions] = useState<MockTransaction[]>([]);
+  const [summary, setSummary] = useState({ grossRevenue: 0, refunds: 0, netRevenue: 0, totalTransactions: 0, successfulTransactions: 0, successRate: 0, averageTransactionValue: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  const filtered = useMemo(() => MOCK_TRANSACTIONS.filter((t) => {
+  useEffect(() => {
+    getDashboard()
+      .then((data) => {
+        setTransactions(data.revenue.transactions.map(toTransaction));
+        setSummary(data.revenue.summary);
+      })
+      .catch((err) => setError(err instanceof Error ? err.message : 'Unable to load payment transactions'))
+      .finally(() => setLoading(false));
+  }, []);
+
+  const filtered = useMemo(() => transactions.filter((t) => {
     const q = search.toLowerCase();
     const matchQ = !q
       || t.transactionId.toLowerCase().includes(q)
@@ -49,9 +99,28 @@ const RevenuePage: React.FC<RevenuePageProps> = ({ onToast }) => {
     const matchType = typeFilter === 'All' || t.type === typeFilter;
     const matchStatus = statusFilter === 'All' || t.status === statusFilter;
     return matchQ && matchType && matchStatus;
-  }), [search, typeFilter, statusFilter]);
+  }), [transactions, search, typeFilter, statusFilter]);
 
   const totalRevenue = filtered.filter(t => t.status === 'SUCCESS').reduce((acc, t) => acc + t.amount, 0);
+
+  const exportCsv = () => {
+    const headers = ['Transaction ID', 'User ID', 'Group ID', 'Amount', 'Method', 'Status', 'Timestamp'];
+    const rows = filtered.map((tx) => [tx.transactionId, tx.userName, tx.groupId || '', tx.amount, tx.paymentMethod, tx.status, tx.timestamp]);
+    const csv = [headers, ...rows].map((row) => row.map((value) => `"${String(value).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8' }));
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `triptual-revenue-${new Date().toISOString().slice(0, 10)}.csv`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+    onToast({ message: `${filtered.length} live transactions exported`, type: 'success' });
+  };
+
+  const summaryCards = [
+    { label: 'Total Gross Volume', value: formatCurrency(summary.grossRevenue), sub: `${summary.totalTransactions} transactions`, icon: <IndianRupee size={20} />, color: '#2E331B', bg: '#E5EC68' },
+    { label: 'Net Platform Revenue', value: formatCurrency(summary.netRevenue), sub: `${formatCurrency(summary.refunds)} refunds`, icon: <CreditCard size={20} />, color: '#059669', bg: '#ECFDF5' },
+    { label: 'Average Transaction', value: formatCurrency(summary.averageTransactionValue), sub: 'Successful payments only', icon: <Zap size={20} />, color: '#D97706', bg: '#FFFBEB' },
+  ];
 
   return (
     <div className="revenue-page">
@@ -60,20 +129,22 @@ const RevenuePage: React.FC<RevenuePageProps> = ({ onToast }) => {
           <h1 className="page-header-title">Revenue & Payments</h1>
           <p className="page-header-subtitle">Platform transaction ledger and financial overview</p>
         </div>
-        <button className="btn btn-secondary btn-sm" onClick={() => onToast({ message: 'CSV export initiated', type: 'success' })}>
+        <button className="btn btn-secondary btn-sm" onClick={exportCsv} disabled={loading || filtered.length === 0}>
           <Download size={14} /> Export CSV
         </button>
       </div>
 
       {/* Summary Cards */}
-      <div className="kpi-grid" style={{ gridTemplateColumns: 'repeat(4,1fr)' }}>
-        {SUMMARY_CARDS.map((c) => (
+      <div className="kpi-grid revenue-kpi-grid">
+        {summaryCards.map((c) => (
           <div key={c.label} className="card revenue-summary-card">
             <div className="revenue-summary-top">
-              <div className="kpi-icon-wrap" style={{ background: c.bg, color: c.color }}>{c.icon}</div>
               <ArrowUpRight size={16} style={{ color: 'var(--color-emerald)' }} />
             </div>
-            <div className="kpi-value">{c.value}</div>
+            <div className="revenue-metric">
+              <div className="kpi-icon-wrap" style={{ background: c.bg, color: c.color }}>{c.icon}</div>
+              <div className="kpi-value">{c.value}</div>
+            </div>
             <div className="kpi-label">{c.label}</div>
             <div className="kpi-sub">{c.sub}</div>
           </div>
@@ -125,7 +196,10 @@ const RevenuePage: React.FC<RevenuePageProps> = ({ onToast }) => {
               </tr>
             </thead>
             <tbody>
-              {filtered.map((tx) => (
+              {loading && <tr><td colSpan={8}>Loading live payment transactions...</td></tr>}
+              {!loading && error && <tr><td colSpan={8}>{error}</td></tr>}
+              {!loading && !error && filtered.length === 0 && <tr><td colSpan={8}>No payment transactions match the selected filters.</td></tr>}
+              {!loading && !error && filtered.map((tx) => (
                 <tr key={tx.id}>
                   <td>
                     <span className="tx-id">{tx.transactionId}</span>
@@ -135,7 +209,10 @@ const RevenuePage: React.FC<RevenuePageProps> = ({ onToast }) => {
                   </td>
                   <td>
                     <div className="tx-user">
-                      <span className="tx-user-name">{tx.userName}</span>
+                      <div className="tx-user-heading">
+                        {resolveAvatarUrl(tx.userAvatar ?? null) ? <img className="tx-user-avatar" src={resolveAvatarUrl(tx.userAvatar ?? null) ?? undefined} alt="" onError={(event) => { event.currentTarget.style.display = 'none'; }} /> : <span className="tx-user-avatar tx-user-avatar-fallback">{tx.userName.slice(0, 2).toUpperCase()}</span>}
+                        <span className="tx-user-name">{tx.userName}</span>
+                      </div>
                       <span className="tx-user-email">{tx.userEmail}</span>
                     </div>
                   </td>

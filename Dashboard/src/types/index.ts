@@ -59,7 +59,6 @@ export type PaymentType = 'PRO_TIER_UPGRADE' | 'SETTLEMENT_FEE' | 'REFUND';
 export type PaymentMethod = 'Razorpay UPI' | 'NetBanking' | 'Card' | 'UPI Direct';
 export type NotificationAudience = 'All Users' | 'Trip Organizers Only' | 'Active Travelers';
 
-/* ── User ── */
 export interface MockUser {
   id: string;
   name: string;
@@ -83,7 +82,6 @@ export interface MockUser {
   lastActive: string;
 }
 
-/* ── Trip Package ── */
 export interface MockTripPackage {
   id: string;
   title: string;
@@ -103,7 +101,6 @@ export interface MockTripPackage {
   description: string;
 }
 
-/* ── Hotel Partner ── */
 export interface MockHotelPartner {
   id: string;
   name: string;
@@ -123,12 +120,12 @@ export interface MockHotelPartner {
   amenities: string[];
 }
 
-/* ── Payment Transaction ── */
 export interface MockTransaction {
   id: string;
   transactionId: string;
   userName: string;
   userEmail: string;
+  userAvatar?: string | null;
   tripDestination: string;
   type: PaymentType;
   amount: number;
@@ -140,7 +137,6 @@ export interface MockTransaction {
   groupId?: string;
 }
 
-/* ── Notification ── */
 export interface MockNotification {
   id: string;
   title: string;
@@ -153,26 +149,23 @@ export interface MockNotification {
   status: 'sent' | 'scheduled' | 'draft';
 }
 
-/* ── KPI Metric ── */
 export interface KPIMetric {
   label: string;
   value: string;
   subValue?: string;
-  trend: number; // percentage change
+  trend: number;
   trendLabel: string;
   icon: string;
   color: string;
   bgColor: string;
 }
 
-/* ── Chart Data Point ── */
 export interface ChartDataPoint {
   label: string;
   value: number;
   secondary?: number;
 }
 
-/* ── Activity Feed Item ── */
 export interface ActivityItem {
   id: string;
   type: 'trip_created' | 'member_joined' | 'expense_settled' | 'pro_upgrade' | 'invite_sent';
@@ -184,7 +177,6 @@ export interface ActivityItem {
   amount?: number;
 }
 
-/* ── Toast ── */
 export interface ToastMessage {
   id: string;
   message: string;
