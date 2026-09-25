@@ -18,8 +18,10 @@ export const setAccessToken = (token: string | null) => {
   else localStorage.removeItem(ACCESS_KEY);
 };
 
-const API_BASE_URL = (((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) ?? '').replace(/\/$/, '');
-if (!API_BASE_URL) {
+const configuredApiBaseUrl = (import.meta as any).env?.VITE_API_BASE_URL as string | undefined;
+const isLocalDevelopment = typeof window !== 'undefined' && ['localhost', '127.0.0.1', '0.0.0.0'].includes(window.location.hostname);
+const API_BASE_URL = (configuredApiBaseUrl ?? (isLocalDevelopment ? '' : 'https://triptual-admin-dashboard.onrender.com')).replace(/\/$/, '');
+if (!API_BASE_URL && !isLocalDevelopment) {
   console.warn(
     '[Triptual Admin] VITE_API_BASE_URL is not set. ' +
     'API calls will fail in production. ' +
@@ -268,4 +270,4 @@ export function getTicketAttachmentUrl(ticketNumber: string, directUrl?: string 
   }
   return `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/attachment`;
 }
-
+
