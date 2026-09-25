@@ -277,6 +277,12 @@ export async function sendTicketMessage(req, res) {
         `UPDATE support_tickets SET status = 'IN_PROGRESS' WHERE id = $1`,
         [ticket.id]
       );
+      await pool.query(
+        `INSERT INTO support_ticket_messages
+         (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
+         VALUES ($1, $2, NULL, 'System', 'SYSTEM', 'Ticket reopened as in progress.', NOW())`,
+        [crypto.randomUUID(), ticket.id]
+      );
     }
 
     return res.status(201).json({
