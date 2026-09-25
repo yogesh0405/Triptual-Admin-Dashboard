@@ -360,8 +360,11 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ onToast }) => {
         {/* Right Column: Device Preview & Sent History */}
         <div className="notif-right-col">
           {/* Live Mobile Device Preview */}
-          <div className="notif-preview-section">
-            <h3 className="section-title" style={{ marginBottom: 'var(--space-3)' }}>Live FCM Device Preview</h3>
+          <div className="card notif-preview-card">
+            <div className="chart-card-header" style={{ padding: 'var(--space-4) var(--space-5) var(--space-3)' }}>
+              <h3 className="section-title" style={{ margin: 0 }}>Live FCM Device Preview</h3>
+              <Smartphone size={16} style={{ color: '#A39E8E' }} />
+            </div>
             <div className="phone-frame-wrap">
               <div className="phone-preview">
                 <div className="phone-status-bar">
@@ -379,7 +382,7 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ onToast }) => {
                     <div className="phone-notif-banner">
                       <div className="phone-notif-app-row">
                         <div className="phone-app-icon">
-                          <span style={{ fontSize: 9, fontWeight: 700, color: '#2E331B' }}>T</span>
+                          <img src="/triptual-logo.png" alt="Triptual" style={{ width: '100%', height: '100%', borderRadius: 4, objectFit: 'cover' }} />
                         </div>
                         <span className="phone-app-name">Triptual</span>
                         <span className="phone-notif-time">now</span>
@@ -387,8 +390,8 @@ const NotificationsPage: React.FC<NotificationsPageProps> = ({ onToast }) => {
                       <div className="phone-notif-title">{title || 'New Expedition Announcement'}</div>
                       <div className="phone-notif-body">{body || 'Your notification content will appear here on traveler devices.'}</div>
                     </div>
-                    <div style={{ display: 'flex', gap: 6, opacity: 0.25, marginTop: 10, justifyContent: 'center' }}>
-                      <Layers size={32} />
+                    <div style={{ display: 'flex', gap: 6, opacity: 0.25, marginTop: 'auto', marginBottom: 6, justifyContent: 'center' }}>
+                      <Layers size={24} />
                     </div>
                   </div>
                 </div>

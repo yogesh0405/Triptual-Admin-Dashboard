@@ -1,4 +1,13 @@
 import { pool } from '../modules/db.js';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
+
+const s3Client = new S3Client({
+  region: process.env.AWS_REGION || 'ap-south-1',
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY,
+  },
+});
 
 export async function listPackages(req, res) {
   try {
@@ -191,5 +200,53 @@ export async function deletePackage(req, res) {
   } catch (error) {
     console.error('Error deleting package:', error);
     return res.status(500).json({ success: false, error: error.message });
+  }
+}
+
+export async function uploadPackageImage(req, res) {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ success: false, error: 'No image file uploaded' });
+    }
+
+    if (!req.file.mimetype.startsWith('image/')) {
+      return res.status(400).json({ success: false, error: 'Uploaded file must be an image (PNG, JPG, WebP, etc.)' });
+    }
+
+    const bucketName = process.env.AWS_S3_BUCKET_NAME || 'hackcelestial-profile-pictures';
+    const region = process.env.AWS_REGION || 'ap-south-1';
+
+    const originalName = req.file.originalname || 'cover.jpg';
+    const ext = originalName.includes('.') ? originalName.slice(originalName.lastIndexOf('.')) : '.jpg';
+    const cleanBaseName = originalName
+      .replace(/\.[^/.]+$/, '')
+      .replace(/[^a-zA-Z0-9_-]/g, '_')
+      .slice(0, 30);
+    const key = `tour-packages/${Date.now()}-${Math.random().toString(36).substring(2, 8)}-${cleanBaseName}${ext}`;
+
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      Body: req.file.buffer,
+      ContentType: req.file.mimetype,
+    });
+
+    await s3Client.send(command);
+
+    const imageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+
+    return res.json({
+      success: true,
+      imageUrl,
+      key,
+      fileName: originalName,
+      fileSize: req.file.size,
+    });
+  } catch (error) {
+    console.error('Error uploading image to S3:', error);
+    return res.status(500).json({
+      success: false,
+      error: error.message || 'Failed to upload image to AWS S3',
+    });
   }
 }

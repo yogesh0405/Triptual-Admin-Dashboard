@@ -152,6 +152,73 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
     }).catch((err) => onToast({ message: err instanceof Error ? err.message : 'Unable to update password', type: 'error' })).finally(() => setIsUpdatingPassword(false));
   }, [newPassword, onToast]);
 
+  const handleExportCSV = useCallback(() => {
+    const listToExport = filtered.length > 0 ? filtered : users;
+    if (listToExport.length === 0) {
+      onToast({ message: 'No users available to export', type: 'warning' });
+      return;
+    }
+
+    const headers = [
+      'User ID',
+      'Name',
+      'Email',
+      'Phone',
+      'Role',
+      'Status',
+      'Verified',
+      'Travel Style',
+      'UPI ID',
+      'Currency',
+      'Account Type',
+      'Trips Count',
+      'Total Spend (INR)',
+      'Joined Date',
+      'Last Active'
+    ];
+
+    const escapeCsv = (val: any) => {
+      if (val === null || val === undefined) return '""';
+      const str = String(val).replace(/"/g, '""');
+      return `"${str}"`;
+    };
+
+    const rows = listToExport.map((u) => [
+      escapeCsv(u.id),
+      escapeCsv(u.name),
+      escapeCsv(u.email),
+      escapeCsv(u.phone || ''),
+      escapeCsv(u.role),
+      escapeCsv(u.status),
+      escapeCsv(u.isVerified ? 'Yes' : 'No'),
+      escapeCsv(u.travelStyle || ''),
+      escapeCsv(u.upiId || ''),
+      escapeCsv(u.currency || 'INR'),
+      escapeCsv(u.isTemp ? 'Temporary' : 'Registered'),
+      escapeCsv(u.tripsCount || 0),
+      escapeCsv(u.totalSpend || 0),
+      escapeCsv(u.joinedDate || ''),
+      escapeCsv(u.lastActive || '')
+    ].join(','));
+
+    const csvContent = [headers.join(','), ...rows].join('\r\n');
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    const dateStr = new Date().toISOString().slice(0, 10);
+    link.download = `triptual_users_export_${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+
+    onToast({
+      message: `Exported ${listToExport.length} users to CSV successfully`,
+      type: 'success'
+    });
+  }, [filtered, users, onToast]);
+
   if (loading) return <div className="page-loading">Loading users from the database...</div>;
 
   return (
@@ -163,7 +230,11 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
           <h1 className="page-header-title">User Management</h1>
           <p className="page-header-subtitle">{users.length} registered travelers & organizers</p>
         </div>
-        <button className="btn btn-secondary btn-sm">
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={handleExportCSV}
+          title="Export users to CSV"
+        >
           <Download size={14} /> Export CSV
         </button>
       </div>
@@ -332,7 +403,6 @@ const UsersPage: React.FC<UsersPageProps> = ({ onToast }) => {
                   { icon: <BadgeCheck size={14} />, label: 'Account Type', val: selectedUser.isTemp ? 'Temporary' : 'Registered' },
                   { icon: <Wallet size={14} />, label: 'Currency', val: selectedUser.currency ?? '—' },
                   { icon: <Clock size={14} />, label: 'Date of Birth', val: selectedUser.dateOfBirth ? new Date(selectedUser.dateOfBirth).toLocaleDateString('en-IN') : '—' },
-                  { icon: <ShieldOff size={14} />, label: 'Avatar', val: selectedUser.avatar ?? 'Not set' },
                   { icon: <TrendingUp size={14} />, label: 'Total Spend', val: `₹${Number(selectedUser.totalSpend ?? 0).toLocaleString('en-IN')}` },
                   { icon: <Clock size={14} />, label: 'Last Active', val: formatIST(selectedUser.lastActive) },
                 ].map((row) => (

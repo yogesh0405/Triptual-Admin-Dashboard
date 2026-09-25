@@ -1,7 +1,41 @@
 .login-shell { min-height: 100vh; display: grid; grid-template-columns: minmax(360px, 0.9fr) 1.1fr; background: #f5f0e8; color: var(--accent-olive-dark); }
 .login-panel { display: flex; flex-direction: column; justify-content: center; width: min(430px, calc(100% - 64px)); margin: auto; }
-.login-brand { display: flex; align-items: center; gap: 10px; font-family: var(--font-serif); font-size: 25px; font-weight: 600; margin-bottom: 72px; }
-.login-mark { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: var(--accent-olive-dark); color: var(--accent-chartreuse); font-family: var(--font-sans); font-size: 16px; }
+.login-brand { display: flex; align-items: center; gap: 14px; margin-bottom: 56px; }
+.login-logo-container {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  padding: 2px;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.9), rgba(5, 150, 105, 0.8), rgba(217, 119, 6, 0.4));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15), 0 0 12px rgba(245, 158, 11, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.login-logo-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: block;
+}
+.login-brand-text { display: flex; flex-direction: column; }
+.login-brand-name {
+  font-family: var(--font-sans);
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  color: var(--accent-olive-dark);
+  line-height: 1.1;
+}
+.login-brand-tag {
+  font-family: var(--font-sans);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--color-emerald);
+}
 .login-kicker { display: inline-flex; align-items: center; gap: 7px; color: var(--color-emerald); font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; margin-bottom: 18px; }
 .login-panel h1 { font-family: var(--font-serif); font-size: clamp(42px, 5vw, 64px); line-height: 1; font-weight: 500; letter-spacing: 0; }
 .login-intro { color: #7c7461; margin: 18px 0 34px; max-width: 340px; }
@@ -13,12 +47,9 @@
 .login-submit { width: 100%; padding: 13px; margin-top: 4px; }
 .login-error { color: var(--color-rose); background: var(--color-rose-bg); border: 1px solid var(--color-rose-border); border-radius: 6px; padding: 10px 12px; font-size: 13px; }
 .login-note { color: #a39e8e; font-size: 11px; margin-top: 28px; line-height: 1.5; }
-.login-aside { position: relative; display: flex; flex-direction: column; justify-content: space-between; min-height: 100vh; padding: 48px 56px; color: #f6f2ea; background: linear-gradient(145deg, #272b18, #58602f 55%, #c5ce57); overflow: hidden; }
+.login-aside { position: relative; display: flex; flex-direction: column; justify-content: center; min-height: 100vh; padding: 48px 56px; color: #f6f2ea; background: linear-gradient(145deg, #272b18, #58602f 55%, #c5ce57); overflow: hidden; }
 .login-aside::after { content: ''; position: absolute; width: 520px; height: 520px; border: 1px solid rgba(229,236,104,.28); border-radius: 50%; right: -180px; bottom: -160px; box-shadow: 0 0 0 52px rgba(229,236,104,.08), 0 0 0 105px rgba(229,236,104,.05); }
-.login-aside-copy { position: relative; z-index: 1; max-width: 510px; margin-top: auto; margin-bottom: 18vh; }
-.login-aside-copy span { font-size: 11px; letter-spacing: .14em; text-transform: uppercase; color: #e5ec68; font-weight: 700; }
+.login-aside-copy { position: relative; z-index: 1; max-width: 510px; margin: auto 0; }
 .login-aside-copy h2 { font-family: var(--font-serif); font-size: clamp(42px, 5vw, 76px); line-height: .98; font-weight: 400; margin: 20px 0; letter-spacing: 0; }
-.login-aside-copy p { max-width: 380px; color: rgba(246,242,234,.76); }
-.login-aside-stat { position: relative; z-index: 1; display: grid; gap: 3px; font-size: 12px; color: rgba(246,242,234,.7); }
-.login-aside-stat strong { color: #f6f2ea; font-size: 14px; }
+.login-aside-copy p { max-width: 380px; color: rgba(246,242,234,.76); font-size: 16px; line-height: 1.6; }
 @media (max-width: 800px) { .login-shell { display: block; } .login-panel { min-height: 100vh; width: min(430px, calc(100% - 40px)); } .login-brand { margin-bottom: 52px; } .login-aside { display: none; } }

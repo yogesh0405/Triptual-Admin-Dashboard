@@ -1,11 +1,18 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useMemo, useCallback, useEffect, useRef } from 'react';
 import {
   Plus, Search, Star, Users, Clock,
   Globe, X, CheckCircle2, Edit3,
   Package, Eye, Trash2, Image as ImageIcon,
-  Sparkles, ShieldCheck, MapPin, DollarSign, Tag, RefreshCw
+  Sparkles, ShieldCheck, MapPin, DollarSign, Tag, RefreshCw,
+  UploadCloud, Loader2
 } from 'lucide-react';
-import { getTourPackages, createTourPackage, updateTourPackageStatus, deleteTourPackage } from '../api';
+import {
+  getTourPackages,
+  createTourPackage,
+  updateTourPackageStatus,
+  deleteTourPackage,
+  uploadTourPackageImage,
+} from '../api';
 import { MOCK_PACKAGES } from '../data/mockData';
 import type { MockTripPackage, TripStatus, ToastMessage } from '../types';
 import './TourPackagesPage.css';
@@ -48,7 +55,7 @@ const INITIAL_FORM = {
   matchScore: '92',
   featured: false,
   status: 'Published' as 'Published' | 'Draft' | 'Sold Out',
-  image: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?auto=format&fit=crop&w=1000&q=80',
+  image: '',
   altImagesText: '',
   description: '',
   itineraryHighlightsText: 'Gothic Quarter guided tour\nSunset sailing session\nLocal food & wine tasting',
@@ -64,8 +71,40 @@ const TourPackagesPage: React.FC<TourPackagesPageProps> = ({ onToast }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // S3 image upload state
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [uploadedFileName, setUploadedFileName] = useState('');
+  const [isDragging, setIsDragging] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   // Add form state
   const [form, setForm] = useState(INITIAL_FORM);
+
+  const handleFileSelected = async (file: File) => {
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      onToast({ message: 'Only image files (PNG, JPG, WebP) are allowed', type: 'error' });
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      onToast({ message: 'Image must be under 10MB', type: 'error' });
+      return;
+    }
+
+    setIsUploadingImage(true);
+    try {
+      const res = await uploadTourPackageImage(file);
+      if (res.success && res.imageUrl) {
+        setForm((prev) => ({ ...prev, image: res.imageUrl }));
+        setUploadedFileName(file.name);
+        onToast({ message: `Cover image uploaded: ${file.name}`, type: 'success' });
+      }
+    } catch (err: any) {
+      onToast({ message: err?.message || 'Failed to upload image', type: 'error' });
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
 
   const fetchPackages = useCallback(async () => {
     setIsLoading(true);
@@ -130,8 +169,12 @@ const TourPackagesPage: React.FC<TourPackagesPageProps> = ({ onToast }) => {
 
   const handleAdd = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.title.trim() || !form.destination.trim() || !form.image.trim()) {
-      onToast({ message: 'Title, destination, and cover image URL are required.', type: 'error' });
+    if (!form.title.trim() || !form.destination.trim()) {
+      onToast({ message: 'Title and destination are required.', type: 'error' });
+      return;
+    }
+    if (!form.image.trim()) {
+      onToast({ message: 'Please upload a package cover image.', type: 'error' });
       return;
     }
 
@@ -439,28 +482,109 @@ const TourPackagesPage: React.FC<TourPackagesPageProps> = ({ onToast }) => {
                   </div>
                 </div>
 
-                <div className="form-section-title" style={{ marginTop: 16 }}><ImageIcon size={14} /> Media & Visual Cover Image</div>
-                <div className="form-field">
-                  <label className="form-label">Main Cover Image URL *</label>
-                  <input
-                    className="input"
-                    required
-                    placeholder="https://images.unsplash.com/..."
-                    value={form.image}
-                    onChange={(e) => setForm({ ...form, image: e.target.value })}
-                  />
+                <div className="form-section-title" style={{ marginTop: 16 }}>
+                  <ImageIcon size={14} /> Package Cover Image
                 </div>
-                {form.image && (
-                  <div className="image-preview-container">
-                    <img
-                      src={form.image}
-                      alt="Cover Preview"
-                      className="image-preview"
-                      onError={(e) => (e.currentTarget.style.display = 'none')}
-                    />
-                    <span className="image-preview-label">Live Cover Preview</span>
-                  </div>
-                )}
+
+                <div className="form-field">
+                  <label className="form-label">
+                    Upload Cover Image *
+                  </label>
+
+                  {/* Hidden File Input */}
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/png,image/jpeg,image/webp,image/jpg"
+                    style={{ display: 'none' }}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) handleFileSelected(file);
+                      e.target.value = '';
+                    }}
+                  />
+
+                  {/* Upload Dropzone when no image */}
+                  {!form.image && (
+                    <div
+                      className={`s3-upload-zone ${isDragging ? 's3-upload-zone--dragging' : ''} ${isUploadingImage ? 's3-upload-zone--uploading' : ''}`}
+                      onDragOver={(e) => { e.preventDefault(); setIsDragging(true); }}
+                      onDragLeave={() => setIsDragging(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragging(false);
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) handleFileSelected(file);
+                      }}
+                      onClick={() => !isUploadingImage && fileInputRef.current?.click()}
+                    >
+                      {isUploadingImage ? (
+                        <div className="s3-uploading-state">
+                          <Loader2 size={32} className="spin-icon" style={{ color: 'var(--color-emerald)' }} />
+                          <div className="s3-upload-title">Uploading...</div>
+                          <div className="s3-upload-sub">Storing in bucket: hackcelestial-profile-pictures (ap-south-1)</div>
+                        </div>
+                      ) : (
+                        <div className="s3-idle-state">
+                          <div className="s3-upload-icon-circle">
+                            <UploadCloud size={24} />
+                          </div>
+                          <div className="s3-upload-title">
+                            <strong>Click to upload</strong> or drag and drop image here
+                          </div>
+                          <div className="s3-upload-sub">
+                            PNG, JPG or WebP up to 10MB
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Uploaded Card Preview */}
+                  {form.image && (
+                    <div className="s3-uploaded-card">
+                      <div className="s3-preview-wrap">
+                        <img
+                          src={form.image}
+                          alt="Cover Preview"
+                          className="s3-preview-img"
+                        />
+                      </div>
+                      <div className="s3-preview-info">
+                        <div className="s3-badge-row">
+                          <span className="badge badge-success">
+                            <CheckCircle2 size={12} />Uploaded
+                          </span>
+
+                        </div>
+                        {uploadedFileName && (
+                          <div className="s3-filename">{uploadedFileName}</div>
+                        )}
+
+                        <div className="s3-actions-row">
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm"
+                            disabled={isUploadingImage}
+                            onClick={() => fileInputRef.current?.click()}
+                          >
+                            <UploadCloud size={13} /> Change Image
+                          </button>
+                          <button
+                            type="button"
+                            className="btn btn-danger btn-sm"
+                            onClick={() => {
+                              setForm((prev) => ({ ...prev, image: '' }));
+                              setUploadedFileName('');
+                            }}
+                          >
+                            <Trash2 size={13} /> Remove
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="form-section-title" style={{ marginTop: 16 }}><Sparkles size={14} /> Description & Experience Highlights</div>
                 <div className="form-field">
@@ -562,7 +686,7 @@ const TourPackagesPage: React.FC<TourPackagesPageProps> = ({ onToast }) => {
                 {selectedPackage.matchScore && <span className="badge badge-info">{selectedPackage.matchScore}% Match</span>}
               </div>
               <p style={{ color: '#7C7461', fontSize: 'var(--text-sm)', marginBottom: 16 }}>{selectedPackage.description}</p>
-              
+
               {selectedPackage.itineraryHighlights && selectedPackage.itineraryHighlights.length > 0 && (
                 <div className="detail-section">
                   <h4 className="detail-section-title">Itinerary Highlights</h4>

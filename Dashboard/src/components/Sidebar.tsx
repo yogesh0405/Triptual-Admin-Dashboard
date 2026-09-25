@@ -2,6 +2,7 @@ import React from 'react';
 import {
   LayoutDashboard, Users, Compass, Building2, CreditCard,
   BellRing, ChevronLeft, ChevronRight, LogOut, MapPin, Shield,
+  LifeBuoy, Ticket
 } from 'lucide-react';
 import type { AdminPage } from '../types';
 import './Sidebar.css';
@@ -12,6 +13,8 @@ interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
   userCount?: number;
+  openTicketCount?: number;
+  onLogout?: () => void;
 }
 
 interface NavItem {
@@ -27,6 +30,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { id: 'dashboard', label: 'Dashboard & Analytics', icon: <LayoutDashboard size={18} /> },
       { id: 'users', label: 'User Management', icon: <Users size={18} /> },
+      { id: 'user-tickets', label: 'User Tickets', icon: <LifeBuoy size={18} /> },
     ],
   },
   {
@@ -45,10 +49,11 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   },
 ];
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, onToggle, userCount }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, onToggle, userCount, openTicketCount, onLogout }) => {
   const navItems = [
     { id: 'dashboard', label: 'Dashboard & Analytics', icon: <LayoutDashboard size={18} /> },
     { id: 'users', label: 'User Management', icon: <Users size={18} />, badge: userCount !== undefined ? String(userCount) : undefined },
+    { id: 'user-tickets', label: 'User Tickets', icon: <LifeBuoy size={18} />, badge: openTicketCount !== undefined ? String(openTicketCount) : undefined },
   ];
 
   return (
@@ -57,7 +62,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, on
       <div className="sidebar-brand">
         <div className="sidebar-logo">
           <div className="sidebar-logo-mark">
-            <MapPin size={16} strokeWidth={2.5} />
+            <img src="/triptual-logo.png" alt="Triptual" className="sidebar-logo-img" />
           </div>
           {!collapsed && (
             <div className="sidebar-brand-text">
@@ -116,11 +121,14 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, onNavigate, collapsed, on
               <span className="sidebar-profile-role">Super Administrator</span>
             </div>
           )}
-          {!collapsed && (
-            <button className="btn-icon sidebar-logout" aria-label="Logout">
-              <LogOut size={15} />
-            </button>
-          )}
+          <button
+            className="btn-icon sidebar-logout"
+            aria-label="Logout"
+            title="Sign out of Admin Console"
+            onClick={onLogout}
+          >
+            <LogOut size={15} />
+          </button>
         </div>
       </div>
     </aside>

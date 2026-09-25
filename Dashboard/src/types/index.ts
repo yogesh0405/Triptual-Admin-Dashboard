@@ -5,10 +5,50 @@
 export type AdminPage =
   | 'dashboard'
   | 'users'
+  | 'user-tickets'
   | 'tour-packages'
   | 'hotels'
   | 'revenue'
   | 'notifications';
+
+export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+
+export interface SupportTicket {
+  id: string;
+  userId: string;
+  userName?: string;
+  userEmail?: string;
+  userPhone?: string;
+  userAvatar?: string;
+  ticketNumber: string;
+  category: 'split' | 'payments' | 'upi' | 'invite' | 'bug' | 'other' | string;
+  subject: string;
+  message: string;
+  status: TicketStatus;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
+  attachmentSize?: number | null;
+  attachmentUrl?: string | null;
+  createdAt: string;
+  updatedAt?: string;
+  messagesCount?: number;
+  lastMessage?: string;
+}
+
+export interface TicketMessage {
+  id: string;
+  ticketId: string;
+  ticketNumber?: string;
+  senderId?: string | null;
+  senderName: string;
+  senderRole: 'USER' | 'SUPPORT' | 'SYSTEM' | string;
+  message?: string | null;
+  attachmentUrl?: string | null;
+  attachmentName?: string | null;
+  attachmentType?: string | null;
+  attachmentSize?: number | null;
+  createdAt: string;
+}
 
 export type UserRole = 'Organizer' | 'Traveler' | 'VIP';
 export type UserStatus = 'Active' | 'Pending' | 'Suspended';

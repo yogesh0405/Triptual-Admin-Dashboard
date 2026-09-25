@@ -1,4 +1,4 @@
-import type { ActivityItem, ChartDataPoint, MockUser } from './types';
+import type { ActivityItem, ChartDataPoint, MockUser, SupportTicket, TicketMessage, TicketStatus } from './types';
 
 const ACCESS_KEY = 'triptual_admin_access';
 let accessToken = localStorage.getItem(ACCESS_KEY);
@@ -163,3 +163,109 @@ export const deleteTourPackage = (id: string) =>
   request<{ success: boolean; message: string }>(`/api/packages/${encodeURIComponent(id)}`, {
     method: 'DELETE',
   });
+
+export async function uploadTourPackageImage(file: File): Promise<{
+  success: boolean;
+  imageUrl: string;
+  key: string;
+  fileName: string;
+  fileSize: number;
+}> {
+  const formData = new FormData();
+  formData.append('image', file);
+
+  const headers = new Headers();
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  const url = `${API_BASE_URL}/api/packages/upload-image`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to upload image to AWS S3');
+  }
+
+  return response.json();
+}
+
+// ==========================================
+// User Support Tickets & Real-Time Chat APIs
+// ==========================================
+
+export interface TicketListResponse {
+  success: boolean;
+  tickets: SupportTicket[];
+  total: number;
+  stats: {
+    total: number;
+    open: number;
+    inProgress: number;
+    resolved: number;
+  };
+}
+
+export interface TicketDetailResponse {
+  success: boolean;
+  ticket: SupportTicket;
+  messages: TicketMessage[];
+}
+
+export const getTickets = (status = 'all', category = 'all', search = '') =>
+  request<TicketListResponse>(
+    `/api/tickets?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`
+  );
+
+export const getTicketDetail = (ticketNumber: string) =>
+  request<TicketDetailResponse>(`/api/tickets/${encodeURIComponent(ticketNumber)}`);
+
+export const updateTicketStatus = (ticketNumber: string, status: TicketStatus) =>
+  request<{ success: boolean; message: string; ticket: SupportTicket }>(
+    `/api/tickets/${encodeURIComponent(ticketNumber)}/status`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ status }),
+    }
+  );
+
+export async function sendTicketMessage(
+  ticketNumber: string,
+  message: string,
+  attachment?: File | null,
+  senderName = 'Admin Concierge Desk'
+): Promise<{ success: boolean; message: string; data: TicketMessage }> {
+  const formData = new FormData();
+  if (message && message.trim()) formData.append('message', message.trim());
+  formData.append('senderName', senderName);
+  if (attachment) formData.append('attachment', attachment);
+
+  const headers = new Headers();
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  const url = `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/messages`;
+
+  const response = await fetch(url, {
+    method: 'POST',
+    headers,
+    body: formData,
+    credentials: 'include',
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.error || 'Failed to dispatch ticket message');
+  }
+
+  return response.json();
+}
+
+export function getTicketAttachmentUrl(ticketNumber: string, directUrl?: string | null): string {
+  if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
+    return directUrl;
+  }
+  return `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/attachment`;
+}
+

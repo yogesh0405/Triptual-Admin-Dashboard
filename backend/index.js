@@ -2,13 +2,14 @@ import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
-import { ensureAuthTables, pool } from './modules/db.js';
+import { ensureAuthTables, ensureSupportMessageSchema, pool } from './modules/db.js';
 import { env, validateEnv } from './utils/env.js';
 import authRoutes from './routes/auth.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import healthRoutes from './routes/health.routes.js';
 import notificationsRoutes from './routes/notifications.routes.js';
 import packagesRoutes from './routes/packages.routes.js';
+import ticketsRoutes from './routes/tickets.routes.js';
 import usersRoutes from './routes/users.routes.js';
 
 const app = express();
@@ -36,6 +37,7 @@ app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/users', usersRoutes);
 app.use('/api/notifications', notificationsRoutes);
 app.use('/api/packages', packagesRoutes);
+app.use('/api/tickets', ticketsRoutes);
 
 async function seedAdmin() {
   const hash = await bcrypt.hash(env.adminPassword, 12);
@@ -51,6 +53,7 @@ async function seedAdmin() {
 async function start() {
   validateEnv();
   await ensureAuthTables();
+  await ensureSupportMessageSchema();
   await seedAdmin();
   app.listen(env.port, '0.0.0.0', () => console.log(`Admin API listening on port ${env.port}`));
 }

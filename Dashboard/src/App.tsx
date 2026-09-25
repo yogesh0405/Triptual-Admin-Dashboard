@@ -8,10 +8,11 @@ import TourPackagesPage from './pages/TourPackagesPage';
 import HotelsPage from './pages/HotelsPage';
 import RevenuePage from './pages/RevenuePage';
 import NotificationsPage from './pages/NotificationsPage';
+import UserTicketsPage from './pages/UserTicketsPage';
 import type { AdminPage, ToastMessage } from './types';
 import './App.css';
 import LoginPage from './pages/LoginPage';
-import { getUsers, logout, refresh } from './api';
+import { getTickets, getUsers, logout, refresh } from './api';
 
 let toastCounter = 0;
 
@@ -21,6 +22,7 @@ const App: React.FC = () => {
   const [activePage, setActivePage] = useState<AdminPage>('dashboard');
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [userCount, setUserCount] = useState<number | undefined>(undefined);
+  const [openTicketCount, setOpenTicketCount] = useState<number | undefined>(undefined);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   useEffect(() => {
@@ -35,6 +37,14 @@ const App: React.FC = () => {
         getUsers()
           .then((result) => setUserCount(result.total))
           .catch(() => setUserCount(0));
+
+        getTickets('OPEN')
+          .then((result) => {
+            if (result && result.stats) {
+              setOpenTicketCount(result.stats.open);
+            }
+          })
+          .catch(() => undefined);
       })
       .finally(() => setAuthChecking(false));
   }, []);
@@ -52,6 +62,7 @@ const App: React.FC = () => {
     switch (activePage) {
       case 'dashboard': return <DashboardPage />;
       case 'users': return <UsersPage onToast={showToast} />;
+      case 'user-tickets': return <UserTicketsPage onToast={showToast} onTicketCountChange={setOpenTicketCount} />;
       case 'tour-packages': return <TourPackagesPage onToast={showToast} />;
       case 'hotels': return <HotelsPage onToast={showToast} />;
       case 'revenue': return <RevenuePage onToast={showToast} />;
@@ -71,6 +82,8 @@ const App: React.FC = () => {
         collapsed={sidebarCollapsed}
         onToggle={() => setSidebarCollapsed((c) => !c)}
         userCount={userCount}
+        openTicketCount={openTicketCount}
+        onLogout={async () => { await logout(); setAdminEmail(null); }}
       />
 
       <main
@@ -79,8 +92,7 @@ const App: React.FC = () => {
       >
         <TopHeader
           activePage={activePage}
-          onShowNotifications={() => setActivePage('notifications')}
-          onLogout={async () => { await logout(); setAdminEmail(null); }}
+          onNavigate={setActivePage}
         />
         <div className="page-body">
           {renderPage()}

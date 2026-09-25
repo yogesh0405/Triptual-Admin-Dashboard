@@ -166,3 +166,140 @@
   to { transform: rotate(360deg); }
 }
 
+/* S3 Upload Zone */
+.s3-upload-zone {
+  border: 2px dashed var(--border-card);
+  border-radius: var(--radius-lg);
+  padding: 24px 16px;
+  background: var(--bg-surface-subtle);
+  cursor: pointer;
+  text-align: center;
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+.s3-upload-zone:hover {
+  border-color: var(--accent-olive);
+  background: var(--bg-surface-warm);
+}
+.s3-upload-zone--dragging {
+  border-color: var(--color-emerald);
+  background: rgba(5, 150, 105, 0.08);
+  transform: scale(1.01);
+}
+.s3-upload-zone--uploading {
+  border-color: var(--color-emerald);
+  background: var(--bg-surface);
+  cursor: wait;
+}
+.s3-idle-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+.s3-upload-icon-circle {
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  background: rgba(70, 75, 41, 0.08);
+  color: var(--accent-olive);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform var(--transition-base);
+}
+.s3-upload-zone:hover .s3-upload-icon-circle {
+  transform: translateY(-2px);
+  background: var(--accent-olive-dark);
+  color: var(--accent-chartreuse);
+}
+.s3-upload-title {
+  font-size: var(--text-sm);
+  color: var(--accent-olive-dark);
+}
+.s3-upload-sub {
+  font-size: 11px;
+  color: #A39E8E;
+}
+.s3-uploading-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+}
+
+/* S3 Uploaded Card */
+.s3-uploaded-card {
+  display: flex;
+  gap: 16px;
+  padding: 12px;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-lg);
+  background: var(--bg-surface);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  align-items: center;
+}
+.s3-preview-wrap {
+  width: 140px;
+  height: 90px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: #000;
+  flex-shrink: 0;
+}
+.s3-preview-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+.s3-preview-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.s3-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.s3-bucket-badge {
+  font-size: 10px;
+  font-weight: var(--fw-semibold);
+  font-family: monospace;
+  color: #7C7461;
+  background: var(--bg-surface-subtle);
+  padding: 2px 6px;
+  border-radius: var(--radius-pill);
+}
+.s3-filename {
+  font-size: var(--text-sm);
+  font-weight: var(--fw-semibold);
+  color: var(--accent-olive-dark);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.s3-url-text {
+  font-size: 10px;
+  color: #A39E8E;
+  font-family: monospace;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 320px;
+}
+.s3-actions-row {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+

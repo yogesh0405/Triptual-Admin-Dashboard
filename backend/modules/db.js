@@ -1,8 +1,12 @@
 import { Pool } from 'pg';
 import { env } from '../utils/env.js';
 
+const connectionString = env.databaseUrl.includes('sslmode=require') && !env.databaseUrl.includes('uselibpqcompat')
+  ? `${env.databaseUrl}&uselibpqcompat=true`
+  : env.databaseUrl;
+
 export const pool = new Pool({
-  connectionString: env.databaseUrl,
+  connectionString,
   max: 10,
   idleTimeoutMillis: 30_000,
   connectionTimeoutMillis: 10_000,
@@ -23,6 +27,13 @@ export async function tableColumns(candidates) {
 }
 
 export const firstColumn = (columns, names) => names.find((name) => columns.has(name));
+
+export async function ensureSupportMessageSchema() {
+  await pool.query(`
+    ALTER TABLE IF EXISTS support_ticket_messages
+    ALTER COLUMN sender_id DROP NOT NULL
+  `);
+}
 
 export async function ensureAuthTables() {
   await pool.query(`
