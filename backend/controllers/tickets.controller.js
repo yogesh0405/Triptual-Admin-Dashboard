@@ -178,7 +178,7 @@ export async function updateTicketStatus(req, res) {
        (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
        VALUES ($1, $2, NULL, 'System', 'SYSTEM', $3, NOW())`,
       [crypto.randomUUID(), ticket.id, `Ticket marked as ${status.toLowerCase()}`]
-    ).catch(() => {});
+    ).catch(() => { });
 
     return res.json({
       success: true,
