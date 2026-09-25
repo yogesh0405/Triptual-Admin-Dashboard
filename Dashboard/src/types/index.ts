@@ -3,15 +3,15 @@
    ============================================================ */
 
 export type AdminPage =
-  | 'dashboard'
-  | 'users'
-  | 'user-tickets'
-  | 'tour-packages'
-  | 'hotels'
-  | 'revenue'
-  | 'notifications';
+  | "dashboard"
+  | "users"
+  | "user-tickets"
+  | "tour-packages"
+  | "hotels"
+  | "revenue"
+  | "notifications";
 
-export type TicketStatus = 'OPEN' | 'IN_PROGRESS' | 'RESOLVED' | 'CLOSED';
+export type TicketStatus = "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CLOSED";
 
 export interface SupportTicket {
   id: string;
@@ -21,7 +21,7 @@ export interface SupportTicket {
   userPhone?: string;
   userAvatar?: string;
   ticketNumber: string;
-  category: 'split' | 'payments' | 'upi' | 'invite' | 'bug' | 'other' | string;
+  category: "split" | "payments" | "upi" | "invite" | "bug" | "other" | string;
   subject: string;
   message: string;
   status: TicketStatus;
@@ -41,7 +41,7 @@ export interface TicketMessage {
   ticketNumber?: string;
   senderId?: string | null;
   senderName: string;
-  senderRole: 'USER' | 'SUPPORT' | 'SYSTEM' | string;
+  senderRole: "USER" | "SUPPORT" | "SYSTEM" | string;
   message?: string | null;
   attachmentUrl?: string | null;
   attachmentName?: string | null;
@@ -50,14 +50,21 @@ export interface TicketMessage {
   createdAt: string;
 }
 
-export type UserRole = 'Organizer' | 'Traveler' | 'VIP';
-export type UserStatus = 'Active' | 'Pending' | 'Suspended';
-export type TripStatus = 'Published' | 'Draft' | 'Sold Out';
-export type ContractStatus = 'ACTIVE' | 'IN_REVIEW' | 'EXPIRED';
-export type PaymentStatus = 'SUCCESS' | 'PENDING' | 'FAILED';
-export type PaymentType = 'PRO_TIER_UPGRADE' | 'SETTLEMENT_FEE' | 'REFUND';
-export type PaymentMethod = 'Razorpay UPI' | 'NetBanking' | 'Card' | 'UPI Direct';
-export type NotificationAudience = 'All Users' | 'Trip Organizers Only' | 'Active Travelers';
+export type UserRole = "Organizer" | "Traveler" | "VIP";
+export type UserStatus = "Active" | "Pending" | "Suspended";
+export type TripStatus = "Published" | "Draft" | "Sold Out";
+export type ContractStatus = "ACTIVE" | "IN_REVIEW" | "EXPIRED";
+export type PaymentStatus = "SUCCESS" | "PENDING" | "FAILED";
+export type PaymentType = "PRO_TIER_UPGRADE" | "SETTLEMENT_FEE" | "REFUND";
+export type PaymentMethod =
+  | "Razorpay UPI"
+  | "NetBanking"
+  | "Card"
+  | "UPI Direct";
+export type NotificationAudience =
+  | "All Users"
+  | "Trip Organizers Only"
+  | "Active Travelers";
 
 export interface MockUser {
   id: string;
@@ -146,7 +153,7 @@ export interface MockNotification {
   sentAt: string;
   sentCount: number;
   openRate: number;
-  status: 'sent' | 'scheduled' | 'draft';
+  status: "sent" | "scheduled" | "draft";
 }
 
 export interface KPIMetric {
@@ -168,7 +175,12 @@ export interface ChartDataPoint {
 
 export interface ActivityItem {
   id: string;
-  type: 'trip_created' | 'member_joined' | 'expense_settled' | 'pro_upgrade' | 'invite_sent';
+  type:
+    | "trip_created"
+    | "member_joined"
+    | "expense_settled"
+    | "pro_upgrade"
+    | "invite_sent";
   title: string;
   description: string;
   timestamp: string;
@@ -180,5 +192,5 @@ export interface ActivityItem {
 export interface ToastMessage {
   id: string;
   message: string;
-  type: 'success' | 'warning' | 'error' | 'default';
+  type: "success" | "warning" | "error" | "default";
 }

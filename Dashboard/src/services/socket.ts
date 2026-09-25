@@ -31,7 +31,10 @@ export function getSocket(): Socket {
 
     socketInstance = io(url, {
       transports: ['websocket', 'polling'],
-      auth: { token, role: 'ADMIN' },
+      auth: (callback) => callback({
+        token: typeof localStorage === 'undefined' ? null : localStorage.getItem('triptual_admin_access'),
+        role: 'ADMIN',
+      }),
       reconnection: true,
       reconnectionAttempts: 15,
       reconnectionDelay: 1000,
@@ -114,6 +117,12 @@ export function onTicketMessage(callback: (payload: any) => void) {
     s.off('ticket:message', handler);
     s.off('ticket:new_message', handler);
   };
+}
+
+export function onTicketCreated(callback: (payload: any) => void) {
+  const s = getSocket();
+  s.on('ticket:created', callback);
+  return () => { s.off('ticket:created', callback); };
 }
 
 /**

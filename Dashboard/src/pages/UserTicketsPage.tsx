@@ -11,8 +11,8 @@ import {
 } from '../api';
 import {
   joinTicketRoom, leaveTicketRoom, onTicketMessage,
-  joinTicketRooms, onTicketStatusChange, onTicketCreated, onTicketPresence, onTicketTyping, sendAdminTyping,
-  sendSocketTicketMessage, sendSocketTicketStatus, onConnectionChange, getSocket
+  joinTicketRooms, onTicketStatusChange, onTicketPresence, onTicketTyping, sendAdminTyping,
+  sendSocketTicketMessage, sendSocketTicketStatus, onConnectionChange, getSocket, onTicketCreated
 } from '../services/socket.ts';
 import type { SupportTicket, TicketMessage, TicketStatus, ToastMessage } from '../types';
 import './UserTicketsPage.css';
@@ -172,12 +172,10 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     fetchTicketsList();
   }, [fetchTicketsList]);
 
-  useEffect(() => {
-    const unsubscribe = onTicketCreated(() => {
-      fetchTicketsList();
-    });
-    return unsubscribe;
-  }, [fetchTicketsList]);
+  useEffect(() => onTicketCreated(() => { void fetchTicketsList(); }), [fetchTicketsList]);
+  useEffect(() => onConnectionChange((connected) => {
+    if (connected) void fetchTicketsList();
+  }), [fetchTicketsList]);
 
   // Handle Selecting a Ticket
   const handleSelectTicket = async (ticket: SupportTicket) => {
@@ -272,10 +270,17 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       );
 
       const newMsg = res.data;
-      setMessages((prev) => prev.some((message) => message.id === newMsg.id) ? prev : [...prev, newMsg]);
+      setMessages((prev) => prev.some((item) => item.id === newMsg.id) ? prev : [...prev, newMsg]);
 
       // Broadcast over socket directly to WebApp
       sendSocketTicketMessage(selectedTicket.ticketNumber, newMsg);
+      if (selectedTicket.status === 'RESOLVED') {
+        setSelectedTicket((prev) => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
+        setTickets((prev) => prev.map((ticket) => ticket.ticketNumber === selectedTicket.ticketNumber
+          ? { ...ticket, status: 'IN_PROGRESS' }
+          : ticket));
+        sendSocketTicketStatus(selectedTicket.ticketNumber, 'IN_PROGRESS');
+      }
 
       setDraftMessage('');
       setDraftAttachment(null);
