@@ -1,4 +1,11 @@
-import type { ActivityItem, ChartDataPoint, MockUser, SupportTicket, TicketMessage, TicketStatus } from './types';
+import type {
+  ActivityItem,
+  ChartDataPoint,
+  MockUser,
+  SupportTicket,
+  TicketMessage,
+  TicketStatus,
+} from './types';
 
 const ACCESS_KEY = 'triptual_admin_access';
 let accessToken = localStorage.getItem(ACCESS_KEY);
@@ -10,6 +17,33 @@ export type DashboardData = {
   settlements: ChartDataPoint[];
   tiers: { label: string; count: number; percentage: number }[];
   activity: ActivityItem[];
+  revenue: {
+    summary: {
+      grossRevenue: number;
+      refunds: number;
+      netRevenue: number;
+      totalTransactions: number;
+      successfulTransactions: number;
+      successRate: number;
+      averageTransactionValue: number;
+    };
+    monthly: { month: string; gross: number; refunds: number; net: number }[];
+    byMethod: { method: string; transactionCount: number; gross: number }[];
+    transactions: {
+      transactionId: string | null;
+      userId: string | null;
+      userName: string;
+      userEmail: string;
+      userAvatar: string | null;
+      groupId: string | null;
+      amount: number;
+      currency: string;
+      paymentMethod: string;
+      paymentGateway: string;
+      status: string;
+      createdAt: string;
+    }[];
+  };
 };
 
 export const setAccessToken = (token: string | null) => {
@@ -22,8 +56,8 @@ const API_BASE_URL = (((import.meta as any).env?.VITE_API_BASE_URL as string | u
 if (!API_BASE_URL) {
   console.warn(
     '[Triptual Admin] VITE_API_BASE_URL is not set. ' +
-    'API calls will fail in production. ' +
-    'Add VITE_API_BASE_URL=https://your-backend.onrender.com to Vercel environment variables.'
+      'API calls will fail in production. ' +
+      'Add VITE_API_BASE_URL=https://your-backend.onrender.com to Vercel environment variables.'
   );
 }
 
@@ -35,8 +69,6 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
   let response: Response;
   try {
-    // credentials:'include' is required for cookie-based refresh tokens.
-    // This works cross-origin only when backend has FRONTEND_URL set to this origin.
     const isCrossOrigin = API_BASE_URL && !API_BASE_URL.startsWith('/');
     response = await fetch(url, { ...init, headers, credentials: isCrossOrigin ? 'include' : 'same-origin' });
   } catch (err) {
@@ -137,15 +169,13 @@ export const sendBroadcastNotification = (payload: BroadcastPayload) =>
 
 export const getBroadcastHistoryLog = () =>
   request<{ success: boolean; broadcasts: BroadcastHistoryItem[] }>('/api/notifications/broadcasts');
+
 export const getUsers = () => request<{ users: MockUser[]; total: number }>('/api/users');
 export const updateUserStatus = (id: string, status: string) => request(`/api/users/${encodeURIComponent(id)}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
 export const updateUserPassword = (id: string, password: string) => request<{ ok: boolean }>('/api/users/' + encodeURIComponent(id) + '/password', { method: 'PATCH', body: JSON.stringify({ password }) });
 
-// Tour Package API calls
 export const getTourPackages = (status = 'All', search = '') =>
-  request<{ success: boolean; packages: any[]; total: number }>(
-    `/api/packages?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`
-  );
+  request<{ success: boolean; packages: any[]; total: number }>(`/api/packages?status=${encodeURIComponent(status)}&search=${encodeURIComponent(search)}`);
 
 export const createTourPackage = (payload: any) =>
   request<{ success: boolean; message: string; package: any }>('/api/packages', {
@@ -193,10 +223,6 @@ export async function uploadTourPackageImage(file: File): Promise<{
   return response.json();
 }
 
-// ==========================================
-// User Support Tickets & Real-Time Chat APIs
-// ==========================================
-
 export interface TicketListResponse {
   success: boolean;
   tickets: SupportTicket[];
@@ -216,21 +242,16 @@ export interface TicketDetailResponse {
 }
 
 export const getTickets = (status = 'all', category = 'all', search = '') =>
-  request<TicketListResponse>(
-    `/api/tickets?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`
-  );
+  request<TicketListResponse>(`/api/tickets?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`);
 
 export const getTicketDetail = (ticketNumber: string) =>
   request<TicketDetailResponse>(`/api/tickets/${encodeURIComponent(ticketNumber)}`);
 
 export const updateTicketStatus = (ticketNumber: string, status: TicketStatus) =>
-  request<{ success: boolean; message: string; ticket: SupportTicket }>(
-    `/api/tickets/${encodeURIComponent(ticketNumber)}/status`,
-    {
-      method: 'PATCH',
-      body: JSON.stringify({ status }),
-    }
-  );
+  request<{ success: boolean; message: string; ticket: SupportTicket }>(`/api/tickets/${encodeURIComponent(ticketNumber)}/status`, {
+    method: 'PATCH',
+    body: JSON.stringify({ status }),
+  });
 
 export async function sendTicketMessage(
   ticketNumber: string,
@@ -268,4 +289,3 @@ export function getTicketAttachmentUrl(ticketNumber: string, directUrl?: string 
   }
   return `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/attachment`;
 }
-

@@ -3,7 +3,7 @@ import { Map, Users, TrendingUp, IndianRupee, ArrowUpRight, CheckCircle2, Plane,
 import { getDashboard, type DashboardData } from '../api';
 import './DashboardPage.css';
 
-const emptyData: DashboardData = { kpis: { activeTrips: 0, registeredTravelers: 0, revenue: 0, settlements: 0 }, monthlyTrips: [], monthlyRevenue: [], settlements: [], tiers: [], activity: [] };
+const emptyData: DashboardData = { kpis: { activeTrips: 0, registeredTravelers: 0, revenue: 0, settlements: 0 }, monthlyTrips: [], monthlyRevenue: [], settlements: [], tiers: [], activity: [], revenue: { summary: { grossRevenue: 0, refunds: 0, netRevenue: 0, totalTransactions: 0, successfulTransactions: 0, successRate: 0, averageTransactionValue: 0 }, monthly: [], byMethod: [], transactions: [] } };
 const format = (value: number) => value.toLocaleString('en-IN');
 const icons = [<Map size={20} />, <Users size={20} />, <CheckCircle2 size={20} />, <IndianRupee size={20} />];
 const colors = [['#2E331B', '#E5EC68'], ['#059669', '#ECFDF5'], ['#2563EB', '#EFF6FF'], ['#D97706', '#FFFBEB']];
