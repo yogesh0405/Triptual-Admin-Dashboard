@@ -158,27 +158,35 @@ export async function updateTicketStatus(req, res) {
   }
 
   try {
-    const result = await pool.query(
-      `UPDATE support_tickets
-       SET status = $1
-       WHERE ticket_number = $2
-       RETURNING id, ticket_number AS "ticketNumber", status, category, subject, user_id AS "userId"`,
-      [status, ticketNumber]
-    );
-
-    if (result.rows.length === 0) {
-      return res.status(404).json({ success: false, error: 'Ticket not found' });
+    const client = await pool.connect();
+    let ticket;
+    try {
+      await client.query('BEGIN');
+      const result = await client.query(
+        `UPDATE support_tickets
+         SET status = $1
+         WHERE ticket_number = $2
+         RETURNING id, ticket_number AS "ticketNumber", status, category, subject, user_id AS "userId"`,
+        [status, ticketNumber]
+      );
+      if (result.rows.length === 0) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, error: 'Ticket not found' });
+      }
+      ticket = result.rows[0];
+      await client.query(
+        `INSERT INTO support_ticket_messages
+         (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
+         VALUES ($1, $2, NULL, 'System', 'SYSTEM', $3, NOW())`,
+        [crypto.randomUUID(), ticket.id, `Ticket marked as ${status.toLowerCase()}`]
+      );
+      await client.query('COMMIT');
+    } catch (transactionError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw transactionError;
+    } finally {
+      client.release();
     }
-
-    const ticket = result.rows[0];
-
-    // Audit message in thread
-    await pool.query(
-      `INSERT INTO support_ticket_messages
-       (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
-       VALUES ($1, $2, NULL, 'System', 'SYSTEM', $3, NOW())`,
-      [crypto.randomUUID(), ticket.id, `Ticket marked as ${status.toLowerCase()}`]
-    ).catch(() => {});
 
     return res.json({
       success: true,
@@ -249,7 +257,11 @@ export async function sendTicketMessage(req, res) {
 
     const msgId = crypto.randomUUID();
 
-    const insertRes = await pool.query(
+    const client = await pool.connect();
+    let newMsg;
+    try {
+      await client.query('BEGIN');
+      const insertRes = await client.query(
       `INSERT INTO support_ticket_messages
        (id, ticket_id, sender_id, sender_name, sender_role, message, attachment_url, attachment_name, attachment_type, attachment_size, created_at)
        VALUES ($1, $2, NULL, $3, 'SUPPORT', $4, $5, $6, $7, $8, NOW())
@@ -267,22 +279,29 @@ export async function sendTicketMessage(req, res) {
         attachment?.mimetype || null,
         attachment?.size || null,
       ]
-    );
-
-    const newMsg = insertRes.rows[0];
-
-    // If ticket was resolved, sending message reopens it to IN_PROGRESS
-    if (ticket.status === 'RESOLVED') {
-      await pool.query(
-        `UPDATE support_tickets SET status = 'IN_PROGRESS' WHERE id = $1`,
-        [ticket.id]
       );
-      await pool.query(
-        `INSERT INTO support_ticket_messages
-         (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
-         VALUES ($1, $2, NULL, 'System', 'SYSTEM', 'Ticket reopened as in progress.', NOW())`,
-        [crypto.randomUUID(), ticket.id]
-      );
+
+      newMsg = insertRes.rows[0];
+
+      // Reopen and add the audit row in the same commit as the agent reply.
+      if (ticket.status === 'RESOLVED') {
+        await client.query(
+          `UPDATE support_tickets SET status = 'IN_PROGRESS' WHERE id = $1`,
+          [ticket.id]
+        );
+        await client.query(
+          `INSERT INTO support_ticket_messages
+           (id, ticket_id, sender_id, sender_name, sender_role, message, created_at)
+           VALUES ($1, $2, NULL, 'System', 'SYSTEM', 'Ticket reopened as in progress.', NOW())`,
+          [crypto.randomUUID(), ticket.id]
+        );
+      }
+      await client.query('COMMIT');
+    } catch (transactionError) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw transactionError;
+    } finally {
+      client.release();
     }
 
     return res.status(201).json({

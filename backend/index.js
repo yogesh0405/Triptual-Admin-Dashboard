@@ -2,8 +2,10 @@ import bcrypt from 'bcryptjs';
 import cookieParser from 'cookie-parser';
 import cors from 'cors';
 import express from 'express';
+import { createServer } from 'node:http';
 import { ensureAuthTables, ensureSupportMessageSchema, pingDatabase, pool } from './modules/db.js';
 import { env, validateEnv } from './utils/env.js';
+import { initSupportSocket } from './utils/support-socket.js';
 import authRoutes from './routes/auth.routes.js';
 import dashboardRoutes from './routes/dashboard.routes.js';
 import healthRoutes from './routes/health.routes.js';
@@ -13,6 +15,8 @@ import ticketsRoutes from './routes/tickets.routes.js';
 import usersRoutes from './routes/users.routes.js';
 
 const app = express();
+const httpServer = createServer(app);
+let supportIo;
 app.use(
   cors({
     origin: (origin, callback) => {
@@ -64,7 +68,22 @@ async function start() {
   await ensureAuthTables();
   await ensureSupportMessageSchema();
   await seedAdmin();
-  app.listen(env.port, '0.0.0.0', () => console.log(`Admin API listening on port ${env.port}`));
+  supportIo = initSupportSocket(httpServer);
+  httpServer.listen(env.port, '0.0.0.0', () => console.log(`Admin API and support socket listening on port ${env.port}`));
 }
 
 start().catch((error) => { console.error(error); process.exit(1); });
+
+let shuttingDown = false;
+async function shutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.info(`[Admin API] ${signal} received; closing HTTP, socket, and database connections`);
+  const closeDatabase = () => pool.end().finally(() => process.exit(0));
+  if (supportIo) supportIo.close(closeDatabase);
+  else httpServer.close(closeDatabase);
+  setTimeout(() => process.exit(1), 10000).unref();
+}
+
+process.on('SIGTERM', () => { void shutdown('SIGTERM'); });
+process.on('SIGINT', () => { void shutdown('SIGINT'); });

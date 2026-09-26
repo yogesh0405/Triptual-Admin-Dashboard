@@ -45,6 +45,22 @@ export async function ensureSupportMessageSchema() {
     ALTER TABLE IF EXISTS support_ticket_messages
     ALTER COLUMN sender_id DROP NOT NULL
   `);
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS support_ticket_event_outbox (
+      event_id BIGSERIAL PRIMARY KEY,
+      event_type VARCHAR(40) NOT NULL,
+      ticket_number VARCHAR(32) NOT NULL,
+      payload JSONB NOT NULL,
+      created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+    CREATE INDEX IF NOT EXISTS idx_support_ticket_event_outbox_created
+      ON support_ticket_event_outbox(event_id);
+    CREATE TABLE IF NOT EXISTS support_ticket_event_consumers (
+      consumer_name VARCHAR(80) PRIMARY KEY,
+      last_event_id BIGINT NOT NULL DEFAULT 0,
+      updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+    );
+  `);
 }
 
 export async function ensureAuthTables() {
