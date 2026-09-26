@@ -56,6 +56,7 @@ const localAdminApi = typeof window !== 'undefined' && ['localhost', '127.0.0.1'
   ? 'http://localhost:4001'
   : '';
 export const API_BASE_URL = (((import.meta as any).env?.VITE_API_BASE_URL as string | undefined) ?? localAdminApi).replace(/\/$/, '');
+export const SUPPORT_API_BASE_URL = (((import.meta as any).env?.VITE_SUPPORT_API_URL as string | undefined) ?? 'https://triptual-api.onrender.com').replace(/\/$/, '');
 if (!API_BASE_URL) {
   console.warn(
     '[Triptual Admin] VITE_API_BASE_URL is not set. ' +
@@ -64,15 +65,15 @@ if (!API_BASE_URL) {
   );
 }
 
-async function request<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
+async function request<T>(path: string, init: RequestInit = {}, retry = true, baseUrl = API_BASE_URL): Promise<T> {
   const headers = new Headers(init.headers);
   headers.set('Content-Type', 'application/json');
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const url = path.startsWith('http') ? path : `${API_BASE_URL}${path}`;
+  const url = path.startsWith('http') ? path : `${baseUrl}${path}`;
 
   let response: Response;
   try {
-    const isCrossOrigin = API_BASE_URL && !API_BASE_URL.startsWith('/');
+    const isCrossOrigin = baseUrl && !baseUrl.startsWith('/');
     response = await fetch(url, { ...init, headers, credentials: isCrossOrigin ? 'include' : 'same-origin' });
   } catch (err) {
     throw new Error('Network error: Unable to reach backend server');
@@ -80,7 +81,7 @@ async function request<T>(path: string, init: RequestInit = {}, retry = true): P
 
   if (response.status === 401 && retry && path !== '/api/auth/refresh' && path !== '/api/auth/login') {
     const refreshed = await refresh();
-    if (refreshed) return request<T>(path, init, false);
+    if (refreshed) return request<T>(path, init, false, baseUrl);
   }
 
   const text = await response.text();
@@ -244,17 +245,46 @@ export interface TicketDetailResponse {
   messages: TicketMessage[];
 }
 
-export const getTickets = (status = 'all', category = 'all', search = '') =>
-  request<TicketListResponse>(`/api/tickets?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`);
+export async function getTickets(status = 'all', category = 'all', search = ''): Promise<TicketListResponse> {
+  const response = await request<{ data: SupportTicket[] }>(
+    `/api/support/admin/tickets?status=${encodeURIComponent(status)}&category=${encodeURIComponent(category)}&search=${encodeURIComponent(search)}`,
+    {},
+    true,
+    SUPPORT_API_BASE_URL,
+  );
+  const tickets = response.data || [];
+  return {
+    success: true,
+    tickets,
+    total: tickets.length,
+    stats: {
+      total: tickets.length,
+      open: tickets.filter((ticket) => ticket.status === 'OPEN').length,
+      inProgress: tickets.filter((ticket) => ticket.status === 'IN_PROGRESS').length,
+      resolved: tickets.filter((ticket) => ['RESOLVED', 'CLOSED'].includes(ticket.status)).length,
+    },
+  };
+}
 
-export const getTicketDetail = (ticketNumber: string) =>
-  request<TicketDetailResponse>(`/api/tickets/${encodeURIComponent(ticketNumber)}`);
+export async function getTicketDetail(ticketNumber: string): Promise<TicketDetailResponse> {
+  const response = await request<{ data: TicketDetailResponse }>(
+    `/api/support/admin/tickets/${encodeURIComponent(ticketNumber)}`,
+    {},
+    true,
+    SUPPORT_API_BASE_URL,
+  );
+  return response.data;
+}
 
-export const updateTicketStatus = (ticketNumber: string, status: TicketStatus) =>
-  request<{ success: boolean; message: string; ticket: SupportTicket }>(`/api/tickets/${encodeURIComponent(ticketNumber)}/status`, {
-    method: 'PATCH',
-    body: JSON.stringify({ status }),
-  });
+export async function updateTicketStatus(ticketNumber: string, status: TicketStatus) {
+  const response = await request<{ data: SupportTicket }>(
+    `/api/support/admin/tickets/${encodeURIComponent(ticketNumber)}/status`,
+    { method: 'PATCH', body: JSON.stringify({ status }) },
+    true,
+    SUPPORT_API_BASE_URL,
+  );
+  return { success: true, ticket: response.data };
+}
 
 export async function sendTicketMessage(
   ticketNumber: string,
@@ -267,20 +297,19 @@ export async function sendTicketMessage(
   formData.append('senderName', senderName);
   if (attachment) formData.append('attachment', attachment);
 
-  const headers = new Headers();
-  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
-  const url = `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/messages`;
+  const url = `${SUPPORT_API_BASE_URL}/api/support/admin/tickets/${encodeURIComponent(ticketNumber)}/messages`;
+  const send = () => {
+    const headers = new Headers();
+    if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+    return fetch(url, { method: 'POST', headers, body: formData, credentials: 'include' });
+  };
 
-  const response = await fetch(url, {
-    method: 'POST',
-    headers,
-    body: formData,
-    credentials: 'include',
-  });
+  let response = await send();
+  if (response.status === 401 && await refresh()) response = await send();
 
   if (!response.ok) {
     const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.error || 'Failed to dispatch ticket message');
+    throw new Error(errorData.error || errorData.message || errorData.err?.message || 'Failed to dispatch ticket message');
   }
 
   return response.json();
@@ -290,5 +319,5 @@ export function getTicketAttachmentUrl(ticketNumber: string, directUrl?: string 
   if (directUrl && (directUrl.startsWith('http://') || directUrl.startsWith('https://'))) {
     return directUrl;
   }
-  return `${API_BASE_URL}/api/tickets/${encodeURIComponent(ticketNumber)}/attachment`;
+  return `${SUPPORT_API_BASE_URL}/api/support/admin/tickets/${encodeURIComponent(ticketNumber)}/attachment`;
 }

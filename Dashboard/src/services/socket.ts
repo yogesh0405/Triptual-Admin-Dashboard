@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import { API_BASE_URL } from "../api";
+import { SUPPORT_API_BASE_URL } from "../api";
 
 let socketInstance: Socket | null = null;
 const listeners = new Set<(connected: boolean) => void>();
@@ -11,7 +11,7 @@ export function getSocketUrl(): string {
     return envUrl.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
   }
 
-  const apiUrl = API_BASE_URL.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
+  const apiUrl = SUPPORT_API_BASE_URL.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
   if (apiUrl) return apiUrl;
 
   if (typeof window !== "undefined") {
@@ -21,12 +21,12 @@ export function getSocketUrl(): string {
       hostname === "127.0.0.1" ||
       hostname === "0.0.0.0"
     ) {
-      return `http://${hostname}:4001`;
+      return `http://${hostname}:4000`;
     }
-    console.error("[Admin Socket.io] Set VITE_API_BASE_URL or VITE_SOCKET_URL to the admin backend origin.");
+    console.error("[Admin Socket.io] Set VITE_SUPPORT_API_URL or VITE_SOCKET_URL to the support backend origin.");
     return window.location.origin;
   }
-  return "http://localhost:4001";
+  return "http://localhost:4000";
 }
 
 /**
@@ -83,7 +83,9 @@ export function joinTicketRoom(ticketNumber: string) {
   if (ticketNumber) {
     const clean = String(ticketNumber).trim();
     joinedTicketRooms.add(clean);
-    s.emit("join:ticket", clean);
+    s.emit("join:ticket", clean, (result: { success: boolean; error?: string }) => {
+      if (!result?.success) console.warn("[Admin Socket.io] Could not join ticket room:", result?.error || clean);
+    });
     console.log("⚡ [Admin Socket.io] Joined room for ticket:", clean);
   }
 }
@@ -110,6 +112,14 @@ export function leaveTicketRoom(ticketNumber: string) {
   }
 }
 
+export function disconnectSocket() {
+  if (!socketInstance) return;
+  socketInstance.disconnect();
+  socketInstance = null;
+  joinedTicketRooms.clear();
+  listeners.forEach((cb) => cb(false));
+}
+
 /**
  * Listen for incoming messages from user or system in active ticket room
  */
@@ -126,10 +136,8 @@ export function onTicketMessage(callback: (payload: any) => void) {
     callback(data);
   };
   s.on("ticket:message", handler);
-  s.on("ticket:new_message", handler);
   return () => {
     s.off("ticket:message", handler);
-    s.off("ticket:new_message", handler);
   };
 }
 
