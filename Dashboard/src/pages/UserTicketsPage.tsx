@@ -11,7 +11,7 @@ import {
 } from '../api';
 import {
   joinTicketRoom, leaveTicketRoom, onTicketMessage,
-  joinTicketRooms, onTicketStatusChange, onTicketPresence, onTicketTyping, sendAdminTyping,
+  onTicketStatusChange, onTicketPresence, onTicketTyping, sendAdminTyping,
   onConnectionChange, getSocket, onTicketCreated, onSocketReconnect
 } from '../services/socket.ts';
 import type { SupportTicket, TicketMessage, TicketStatus, ToastMessage } from '../types';
@@ -152,7 +152,6 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       const res = await getTickets(statusFilter, categoryFilter, searchQuery);
       if (res && res.tickets) {
         setTickets(res.tickets);
-        joinTicketRooms(res.tickets.map((ticket) => ticket.ticketNumber));
         if (res.stats) {
           setStats(res.stats);
           if (onTicketCountChange) {
@@ -189,13 +188,16 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     }).catch((error) => console.warn('Could not resync ticket conversation after reconnect:', error));
   }), [selectedTicket?.ticketNumber]);
 
+  useEffect(() => {
+    const ticketNumber = selectedTicket?.ticketNumber;
+    if (!ticketNumber) return;
+    joinTicketRoom(ticketNumber);
+    return () => leaveTicketRoom(ticketNumber);
+  }, [selectedTicket?.ticketNumber]);
+
   // Handle Selecting a Ticket
   const handleSelectTicket = async (ticket: SupportTicket) => {
     if (selectedTicket?.ticketNumber === ticket.ticketNumber) return;
-
-    if (selectedTicket) {
-      leaveTicketRoom(selectedTicket.ticketNumber);
-    }
 
     setSelectedTicket(ticket);
     setIsLoadingMessages(true);
@@ -203,8 +205,6 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     setDraftMessage('');
     setDraftAttachment(null);
     setUserTyping(false);
-
-    joinTicketRoom(ticket.ticketNumber);
 
     try {
       const res = await getTicketDetail(ticket.ticketNumber);

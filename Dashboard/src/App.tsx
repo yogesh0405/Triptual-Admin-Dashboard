@@ -13,6 +13,7 @@ import type { AdminPage, ToastMessage } from './types';
 import './App.css';
 import LoginPage from './pages/LoginPage';
 import { getTickets, getUsers, logout, refresh } from './api';
+import { disconnectSocket } from './services/socket';
 
 let toastCounter = 0;
 
@@ -83,7 +84,7 @@ const App: React.FC = () => {
         onToggle={() => setSidebarCollapsed((c) => !c)}
         userCount={userCount}
         openTicketCount={openTicketCount}
-        onLogout={async () => { await logout(); setAdminEmail(null); }}
+        onLogout={async () => { disconnectSocket(); await logout(); setAdminEmail(null); }}
       />
 
       <main
