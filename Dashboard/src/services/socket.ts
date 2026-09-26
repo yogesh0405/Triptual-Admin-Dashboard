@@ -115,7 +115,14 @@ export function leaveTicketRoom(ticketNumber: string) {
  */
 export function onTicketMessage(callback: (payload: any) => void) {
   const s = getSocket();
+  const seenMessageIds = new Set<string>();
   const handler = (data: any) => {
+    const message = data?.message && typeof data.message === 'object' ? data.message : data;
+    if (message?.id) {
+      if (seenMessageIds.has(String(message.id))) return;
+      seenMessageIds.add(String(message.id));
+      if (seenMessageIds.size > 2000) seenMessageIds.clear();
+    }
     callback(data);
   };
   s.on("ticket:message", handler);
