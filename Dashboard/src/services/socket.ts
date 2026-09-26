@@ -1,4 +1,5 @@
 import { io, Socket } from "socket.io-client";
+import { API_BASE_URL } from "../api";
 
 let socketInstance: Socket | null = null;
 const listeners = new Set<(connected: boolean) => void>();
@@ -7,10 +8,12 @@ const joinedTicketRooms = new Set<string>();
 export function getSocketUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_SOCKET_URL;
   if (envUrl && typeof envUrl === "string" && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, "");
+    return envUrl.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
   }
 
-  // Connect to real-time WebSocket backend on port 4000 in local dev
+  const apiUrl = API_BASE_URL.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
+  if (apiUrl) return apiUrl;
+
   if (typeof window !== "undefined") {
     const hostname = window.location.hostname;
     if (
@@ -18,11 +21,12 @@ export function getSocketUrl(): string {
       hostname === "127.0.0.1" ||
       hostname === "0.0.0.0"
     ) {
-      return `http://${hostname}:4000`;
+      return `http://${hostname}:4001`;
     }
+    console.error("[Admin Socket.io] Set VITE_API_BASE_URL or VITE_SOCKET_URL to the admin backend origin.");
+    return window.location.origin;
   }
-
-  return "https://triptual-api.onrender.com";
+  return "http://localhost:4001";
 }
 
 /**
@@ -31,15 +35,9 @@ export function getSocketUrl(): string {
 export function getSocket(): Socket {
   if (!socketInstance) {
     const url = getSocketUrl();
-    const token =
-      typeof localStorage !== "undefined"
-        ? localStorage.getItem("triptual_admin_access")
-        : null;
-
     socketInstance = io(url, {
       transports: ["websocket", "polling"],
-      auth: (callback) =>
-        callback({
+      auth: (callback) => callback({
           token:
             typeof localStorage === "undefined"
               ? null
@@ -58,7 +56,6 @@ export function getSocket(): Socket {
         ")",
       );
       listeners.forEach((cb) => cb(true));
-      socketInstance?.emit("admin:join");
       joinedTicketRooms.forEach((ticketNumber) =>
         socketInstance?.emit("join:ticket", ticketNumber),
       );
@@ -196,34 +193,6 @@ export function sendAdminTyping(ticketNumber: string, isTyping: boolean) {
 }
 
 /**
- * Broadcast message over socket directly
- */
-export function sendSocketTicketMessage(
-  ticketNumber: string,
-  messageData: any,
-) {
-  const s = getSocket();
-  if (ticketNumber) {
-    const clean = String(ticketNumber).trim();
-    s.emit("ticket:send_message", {
-      ticketNumber: clean,
-      ...messageData,
-    });
-  }
-}
-
-export function sendSocketTicketStatus(ticketNumber: string, status: string) {
-  const s = getSocket();
-  if (ticketNumber) {
-    s.emit("ticket:status_change", {
-      ticketNumber: String(ticketNumber).trim(),
-      status,
-      senderRole: "SUPPORT",
-    });
-  }
-}
-
-/**
  * Connection state listener
  */
 export function onConnectionChange(callback: (connected: boolean) => void) {
@@ -234,4 +203,12 @@ export function onConnectionChange(callback: (connected: boolean) => void) {
   return () => {
     listeners.delete(callback);
   };
+}
+
+export function onSocketReconnect(callback: () => void) {
+  const s = getSocket();
+  const onConnect = () => callback();
+  s.on('connect', onConnect);
+  if (s.connected) callback();
+  return () => { s.off('connect', onConnect); };
 }

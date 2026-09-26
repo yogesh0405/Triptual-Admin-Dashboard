@@ -12,7 +12,7 @@ import {
 import {
   joinTicketRoom, leaveTicketRoom, onTicketMessage,
   joinTicketRooms, onTicketStatusChange, onTicketPresence, onTicketTyping, sendAdminTyping,
-  sendSocketTicketMessage, sendSocketTicketStatus, onConnectionChange, getSocket, onTicketCreated
+  onConnectionChange, getSocket, onTicketCreated, onSocketReconnect
 } from '../services/socket.ts';
 import type { SupportTicket, TicketMessage, TicketStatus, ToastMessage } from '../types';
 import './UserTicketsPage.css';
@@ -177,6 +177,18 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
   useEffect(() => onConnectionChange((connected) => {
     if (connected) void fetchTicketsList();
   }), [fetchTicketsList]);
+  useEffect(() => onSocketReconnect(() => {
+    const ticketNumber = selectedTicket?.ticketNumber;
+    if (!ticketNumber) return;
+    getTicketDetail(ticketNumber).then((res) => {
+      if (res.ticket) setSelectedTicket(res.ticket);
+      setMessages((current) => {
+        const byId = new Map((res.messages || []).map((message) => [message.id, message]));
+        current.forEach((message) => byId.set(message.id, message));
+        return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      });
+    }).catch((error) => console.warn('Could not resync ticket conversation after reconnect:', error));
+  }), [selectedTicket?.ticketNumber]);
 
   // Handle Selecting a Ticket
   const handleSelectTicket = async (ticket: SupportTicket) => {
@@ -198,7 +210,11 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     try {
       const res = await getTicketDetail(ticket.ticketNumber);
       if (res.ticket) setSelectedTicket(res.ticket);
-      setMessages(res.messages || []);
+      setMessages((current) => {
+        const byId = new Map((res.messages || []).map((message) => [message.id, message]));
+        current.forEach((message) => byId.set(message.id, message));
+        return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+      });
     } catch (err: any) {
       console.warn('Failed to load ticket details:', err);
       onToast({ message: err.message || 'Failed to load ticket conversation', type: 'error' });
@@ -223,7 +239,6 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       setTickets((prev) =>
         prev.map((t) => (t.ticketNumber === selectedTicket.ticketNumber ? { ...t, status: newStatus } : t))
       );
-      sendSocketTicketStatus(selectedTicket.ticketNumber, newStatus);
 
       // Re-calculate stats
       setStats((prev) => ({
@@ -271,14 +286,11 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       const newMsg = res.data;
       setMessages((prev) => prev.some((item) => item.id === newMsg.id) ? prev : [...prev, newMsg]);
 
-      // Broadcast over socket directly to WebApp
-      sendSocketTicketMessage(selectedTicket.ticketNumber, newMsg);
       if (selectedTicket.status === 'RESOLVED') {
         setSelectedTicket((prev) => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
         setTickets((prev) => prev.map((ticket) => ticket.ticketNumber === selectedTicket.ticketNumber
           ? { ...ticket, status: 'IN_PROGRESS' }
           : ticket));
-        sendSocketTicketStatus(selectedTicket.ticketNumber, 'IN_PROGRESS');
       }
 
       setDraftMessage('');
@@ -294,7 +306,7 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
         )
       );
 
-      onToast({ message: 'Response sent to traveler in real-time', type: 'success' });
+      onToast({ message: 'Response saved and live ticket update published', type: 'success' });
     } catch (err: any) {
       onToast({ message: err.message || 'Failed to send response', type: 'error' });
     } finally {
