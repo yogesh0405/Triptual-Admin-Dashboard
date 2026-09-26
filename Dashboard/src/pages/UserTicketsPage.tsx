@@ -10,10 +10,10 @@ import {
   sendTicketMessage, getTicketAttachmentUrl
 } from '../api';
 import {
-  joinTicketRoom, leaveTicketRoom, onTicketMessage,
-  onTicketStatusChange, onTicketPresence, onTicketTyping, sendAdminTyping,
-  onConnectionChange, getSocket, onTicketCreated, onSocketReconnect
-} from '../services/socket.ts';
+  getSocket, joinTicketRoom, leaveTicketRoom, onConnectionChange,
+  onSocketReconnect, onTicketCreated, onTicketMessage, onTicketPresence,
+  onTicketStatusChange, onTicketTyping, sendAdminTyping
+} from '../services/socket';
 import type { SupportTicket, TicketMessage, TicketStatus, ToastMessage } from '../types';
 import './UserTicketsPage.css';
 
@@ -52,16 +52,16 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
   // Active Selected Ticket & Chat
   const [selectedTicket, setSelectedTicket] = useState<SupportTicket | null>(null);
   const [messages, setMessages] = useState<TicketMessage[]>([]);
+  const seenMessageIdsRef = useRef(new Set<string>());
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const sendInFlightRef = useRef(false);
   const [draftMessage, setDraftMessage] = useState('');
   const [draftAttachment, setDraftAttachment] = useState<File | null>(null);
-
-  // Real-time states
   const [isSocketConnected, setIsSocketConnected] = useState(false);
   const [clientPresence, setClientPresence] = useState<Record<string, boolean>>({});
   const [userTyping, setUserTyping] = useState(false);
+
   const [copiedId, setCopiedId] = useState<string | null>(null);
 
   // Document Lightbox Preview
@@ -71,79 +71,6 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const typingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  // Initialize Socket Connection & Listeners
-  useEffect(() => {
-    const socket = getSocket();
-    setIsSocketConnected(socket.connected);
-
-    const unsubConn = onConnectionChange((connected) => {
-      setIsSocketConnected(connected);
-    });
-
-    const unsubMsg = onTicketMessage((payload) => {
-      const msg: TicketMessage = payload?.message && typeof payload.message === 'object'
-        ? payload.message
-        : payload;
-      const tNum = payload?.ticketNumber || msg?.ticketNumber;
-
-      // Update in active chat if viewing this ticket
-      if (selectedTicket && (tNum === selectedTicket.ticketNumber || msg?.ticketId === selectedTicket.id)) {
-        if (msg && msg.id) {
-          setMessages((prev) => {
-            if (prev.some((m) => m.id === msg.id)) return prev;
-            return [...prev, msg];
-          });
-        }
-      }
-
-      // Update tickets list summary
-      setTickets((prev) =>
-        prev.map((t) => {
-          if (t.ticketNumber === tNum || t.id === msg?.ticketId) {
-            return {
-              ...t,
-              messagesCount: (t.messagesCount || 0) + 1,
-              lastMessage: msg.message || 'Attachment sent',
-            };
-          }
-          return t;
-        })
-      );
-    });
-
-    const unsubStatus = onTicketStatusChange((payload) => {
-      if (!payload || !payload.ticketNumber) return;
-      const { ticketNumber, status } = payload;
-
-      setTickets((prev) =>
-        prev.map((t) => (t.ticketNumber === ticketNumber ? { ...t, status } : t))
-      );
-
-      if (selectedTicket && selectedTicket.ticketNumber === ticketNumber) {
-        setSelectedTicket((prev) => (prev ? { ...prev, status } : null));
-      }
-    });
-
-    const unsubPresence = onTicketPresence((payload) => {
-      if (!payload?.ticketNumber) return;
-      setClientPresence((prev) => ({ ...prev, [payload.ticketNumber]: Boolean(payload.clientOnline ?? payload.userOnline) }));
-    });
-
-    const unsubTyping = onTicketTyping((data) => {
-      if (selectedTicket && data.ticketNumber === selectedTicket.ticketNumber) {
-        setUserTyping(data.isTyping);
-      }
-    });
-
-    return () => {
-      unsubConn();
-      unsubMsg();
-      unsubStatus();
-      unsubPresence();
-      unsubTyping();
-    };
-  }, [selectedTicket]);
 
   // Load Tickets from API
   const fetchTicketsList = useCallback(async () => {
@@ -171,28 +98,148 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     fetchTicketsList();
   }, [fetchTicketsList]);
 
-  useEffect(() => onTicketCreated(() => { void fetchTicketsList(); }), [fetchTicketsList]);
-  useEffect(() => onConnectionChange((connected) => {
-    if (connected) void fetchTicketsList();
-  }), [fetchTicketsList]);
-  useEffect(() => onSocketReconnect(() => {
-    const ticketNumber = selectedTicket?.ticketNumber;
-    if (!ticketNumber) return;
-    getTicketDetail(ticketNumber).then((res) => {
-      if (res.ticket) setSelectedTicket(res.ticket);
-      setMessages((current) => {
-        const byId = new Map((res.messages || []).map((message) => [message.id, message]));
-        current.forEach((message) => byId.set(message.id, message));
-        return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+  useEffect(() => {
+    let isActive = true;
+    let isRefreshing = false;
+    const refreshQueue = async () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      try {
+        const result = await getTickets(statusFilter, categoryFilter, searchQuery);
+        if (!isActive || !result?.tickets) return;
+        setTickets(result.tickets);
+        setStats(result.stats);
+        onTicketCountChange?.(result.stats.open);
+      } catch (error) {
+        console.warn('Could not refresh support ticket queue:', error);
+      } finally {
+        isRefreshing = false;
+      }
+    };
+    const poll = setInterval(() => void refreshQueue(), 30000);
+    return () => {
+      isActive = false;
+      clearInterval(poll);
+    };
+  }, [statusFilter, categoryFilter, searchQuery, onTicketCountChange]);
+
+  useEffect(() => {
+    const socket = getSocket();
+    setIsSocketConnected(socket.connected);
+    const unsubscribeConnection = onConnectionChange(setIsSocketConnected);
+    const unsubscribeMessage = onTicketMessage((payload) => {
+      const message: TicketMessage = payload?.message && typeof payload.message === 'object'
+        ? payload.message
+        : payload;
+      const ticketNumber = payload?.ticketNumber || message?.ticketNumber;
+      if (!message?.id || !ticketNumber) return;
+      if (seenMessageIdsRef.current.has(message.id)) return;
+      seenMessageIdsRef.current.add(message.id);
+      if (seenMessageIdsRef.current.size > 2000) {
+        const oldestId = seenMessageIdsRef.current.values().next().value;
+        if (oldestId) seenMessageIdsRef.current.delete(oldestId);
+      }
+
+      if (selectedTicket?.ticketNumber === ticketNumber) {
+        setMessages((current) => current.some((item) => item.id === message.id)
+          ? current
+          : [...current, message].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()));
+      }
+      setTickets((current) => current.map((ticket) => ticket.ticketNumber === ticketNumber
+        ? { ...ticket, messagesCount: (ticket.messagesCount || 0) + 1, lastMessage: message.message || 'Attachment sent' }
+        : ticket));
+    });
+    const unsubscribeStatus = onTicketStatusChange((payload) => {
+      if (!payload?.ticketNumber || !payload.status) return;
+      setTickets((current) => current.map((ticket) => ticket.ticketNumber === payload.ticketNumber
+        ? { ...ticket, status: payload.status }
+        : ticket));
+      setSelectedTicket((current) => {
+        if (!current || current.ticketNumber !== payload.ticketNumber) return current;
+        return { ...current, status: payload.status as TicketStatus };
       });
-    }).catch((error) => console.warn('Could not resync ticket conversation after reconnect:', error));
-  }), [selectedTicket?.ticketNumber]);
+    });
+    const unsubscribePresence = onTicketPresence((payload) => {
+      if (payload?.ticketNumber) {
+        setClientPresence((current) => ({ ...current, [payload.ticketNumber]: Boolean(payload.clientOnline ?? payload.userOnline) }));
+      }
+    });
+    const unsubscribeTyping = onTicketTyping((payload) => {
+      if (payload?.ticketNumber === selectedTicket?.ticketNumber && payload.senderRole === 'USER') {
+        setUserTyping(Boolean(payload.isTyping));
+      }
+    });
+    const unsubscribeCreated = onTicketCreated(() => { void fetchTicketsList(); });
+    const unsubscribeReconnect = onSocketReconnect(() => {
+      void fetchTicketsList();
+      const ticketNumber = selectedTicket?.ticketNumber;
+      if (!ticketNumber) return;
+      void getTicketDetail(ticketNumber).then((result) => {
+        if (!result.ticket) return;
+        setSelectedTicket((current) => current?.ticketNumber === ticketNumber ? { ...current, ...result.ticket } : current);
+        setMessages((current) => {
+          const byId = new Map((result.messages || []).map((message) => [message.id, message]));
+          current.forEach((message) => byId.set(message.id, message));
+          return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        });
+      }).catch((error) => console.warn('Could not resync ticket conversation after reconnect:', error));
+    });
+
+    return () => {
+      unsubscribeConnection();
+      unsubscribeMessage();
+      unsubscribeStatus();
+      unsubscribePresence();
+      unsubscribeTyping();
+      unsubscribeCreated();
+      unsubscribeReconnect();
+    };
+  }, [fetchTicketsList, selectedTicket?.ticketNumber]);
 
   useEffect(() => {
     const ticketNumber = selectedTicket?.ticketNumber;
     if (!ticketNumber) return;
     joinTicketRoom(ticketNumber);
-    return () => leaveTicketRoom(ticketNumber);
+    return () => {
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      sendAdminTyping(ticketNumber, false);
+      leaveTicketRoom(ticketNumber);
+      setUserTyping(false);
+    };
+  }, [selectedTicket?.ticketNumber]);
+
+  useEffect(() => {
+    const ticketNumber = selectedTicket?.ticketNumber;
+    if (!ticketNumber) return;
+    let isActive = true;
+    let isRefreshing = false;
+    const refreshConversation = async () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      try {
+        const result = await getTicketDetail(ticketNumber);
+        if (!isActive) return;
+        (result.messages || []).forEach((message) => seenMessageIdsRef.current.add(message.id));
+        if (result.ticket) {
+          setSelectedTicket((current) => current?.ticketNumber === ticketNumber ? { ...current, ...result.ticket } : current);
+          setTickets((current) => current.map((ticket) => ticket.ticketNumber === ticketNumber ? { ...ticket, ...result.ticket } : ticket));
+        }
+        setMessages((current) => {
+          const byId = new Map((result.messages || []).map((message) => [message.id, message]));
+          current.forEach((message) => byId.set(message.id, message));
+          return [...byId.values()].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
+        });
+      } catch (error) {
+        console.warn('Could not refresh ticket conversation:', error);
+      } finally {
+        isRefreshing = false;
+      }
+    };
+    const poll = setInterval(() => void refreshConversation(), 8000);
+    return () => {
+      isActive = false;
+      clearInterval(poll);
+    };
   }, [selectedTicket?.ticketNumber]);
 
   // Handle Selecting a Ticket
@@ -204,11 +251,11 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     setMessages([]);
     setDraftMessage('');
     setDraftAttachment(null);
-    setUserTyping(false);
 
     try {
       const res = await getTicketDetail(ticket.ticketNumber);
       if (res.ticket) setSelectedTicket(res.ticket);
+      (res.messages || []).forEach((message) => seenMessageIdsRef.current.add(message.id));
       setMessages((current) => {
         const byId = new Map((res.messages || []).map((message) => [message.id, message]));
         current.forEach((message) => byId.set(message.id, message));
@@ -252,16 +299,15 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
     }
   };
 
-  // Handle Typing indicator broadcast
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setDraftMessage(e.target.value);
     if (!selectedTicket) return;
-
-    sendAdminTyping(selectedTicket.ticketNumber, true);
+    const isTyping = Boolean(e.target.value.trim());
+    sendAdminTyping(selectedTicket.ticketNumber, isTyping);
     if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
-    typingTimeoutRef.current = setTimeout(() => {
-      if (selectedTicket) sendAdminTyping(selectedTicket.ticketNumber, false);
-    }, 1500);
+    if (isTyping) {
+      typingTimeoutRef.current = setTimeout(() => sendAdminTyping(selectedTicket.ticketNumber, false), 1200);
+    }
   };
 
   // Handle Send Message
@@ -285,7 +331,11 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       );
 
       const newMsg = res.data;
+      const messageAlreadyReceived = seenMessageIdsRef.current.has(newMsg.id);
+      seenMessageIdsRef.current.add(newMsg.id);
       setMessages((prev) => prev.some((item) => item.id === newMsg.id) ? prev : [...prev, newMsg]);
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+      sendAdminTyping(selectedTicket.ticketNumber, false);
 
       if (selectedTicket.status === 'RESOLVED') {
         setSelectedTicket((prev) => prev ? { ...prev, status: 'IN_PROGRESS' } : null);
@@ -302,7 +352,7 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
       setTickets((prev) =>
         prev.map((t) =>
           t.ticketNumber === selectedTicket.ticketNumber
-            ? { ...t, messagesCount: (t.messagesCount || 0) + 1, lastMessage: textToSend || 'Attachment sent' }
+            ? { ...t, messagesCount: messageAlreadyReceived ? t.messagesCount : (t.messagesCount || 0) + 1, lastMessage: textToSend || 'Attachment sent' }
             : t
         )
       );
@@ -344,12 +394,12 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
               </span>
               <span className={`socket-status-pill ${isSocketConnected ? 'socket-status-pill--online' : 'socket-status-pill--offline'}`}>
                 <span className="socket-pulse-dot" />
-                <span>{isSocketConnected ? 'Live Socket Connected' : 'Connecting WebSocket...'}</span>
+                <span>{isSocketConnected ? 'Live chat connected' : 'Reconnecting live chat...'}</span>
               </span>
             </div>
             <h1 className="tickets-title">User Tickets & Inquiries</h1>
             <p className="tickets-subtitle">
-              Real-time traveler support desk with WebSocket live chat, attachment inspection, and dispute resolution.
+              Support queue with message history, attachment inspection, and ticket resolution.
             </p>
           </div>
 
@@ -761,13 +811,10 @@ const UserTicketsPage: React.FC<UserTicketsPageProps> = ({ onToast, onTicketCoun
                   <div className="chat-bubble-row chat-bubble-row--user">
                     <div className="chat-typing-indicator">
                       <span>Traveler is typing</span>
-                      <span className="typing-dots">
-                        <span>.</span><span>.</span><span>.</span>
-                      </span>
+                      <span className="typing-dots"><span>.</span><span>.</span><span>.</span></span>
                     </div>
                   </div>
                 )}
-
                 <div ref={messagesEndRef} />
               </div>
 

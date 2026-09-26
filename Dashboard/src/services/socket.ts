@@ -1,5 +1,5 @@
 import { io, Socket } from "socket.io-client";
-import { SUPPORT_API_BASE_URL } from "../api";
+import { API_BASE_URL } from "../api";
 
 let socketInstance: Socket | null = null;
 const listeners = new Set<(connected: boolean) => void>();
@@ -8,10 +8,15 @@ const joinedTicketRooms = new Set<string>();
 export function getSocketUrl(): string {
   const envUrl = (import.meta as any).env?.VITE_SOCKET_URL;
   if (envUrl && typeof envUrl === "string" && envUrl.trim()) {
-    return envUrl.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
+    return envUrl
+      .trim()
+      .replace(/\/+$/, "")
+      .replace(/\/api\/?$/, "");
   }
 
-  const apiUrl = SUPPORT_API_BASE_URL.trim().replace(/\/+$/, "").replace(/\/api\/?$/, "");
+  const apiUrl = API_BASE_URL.trim()
+    .replace(/\/+$/, "")
+    .replace(/\/api\/?$/, "");
   if (apiUrl) return apiUrl;
 
   if (typeof window !== "undefined") {
@@ -23,7 +28,9 @@ export function getSocketUrl(): string {
     ) {
       return `http://${hostname}:4000`;
     }
-    console.error("[Admin Socket.io] Set VITE_SUPPORT_API_URL or VITE_SOCKET_URL to the support backend origin.");
+    console.error(
+      "[Admin Socket.io] Set VITE_API_BASE_URL or VITE_SOCKET_URL to the admin API origin.",
+    );
     return window.location.origin;
   }
   return "http://localhost:4000";
@@ -37,7 +44,8 @@ export function getSocket(): Socket {
     const url = getSocketUrl();
     socketInstance = io(url, {
       transports: ["websocket", "polling"],
-      auth: (callback) => callback({
+      auth: (callback) =>
+        callback({
           token:
             typeof localStorage === "undefined"
               ? null
@@ -83,9 +91,17 @@ export function joinTicketRoom(ticketNumber: string) {
   if (ticketNumber) {
     const clean = String(ticketNumber).trim();
     joinedTicketRooms.add(clean);
-    s.emit("join:ticket", clean, (result: { success: boolean; error?: string }) => {
-      if (!result?.success) console.warn("[Admin Socket.io] Could not join ticket room:", result?.error || clean);
-    });
+    s.emit(
+      "join:ticket",
+      clean,
+      (result: { ok?: boolean; success?: boolean; error?: string }) => {
+        if (!(result?.ok || result?.success))
+          console.warn(
+            "[Admin Socket.io] Could not join ticket room:",
+            result?.error || clean,
+          );
+      },
+    );
     console.log("⚡ [Admin Socket.io] Joined room for ticket:", clean);
   }
 }
@@ -127,7 +143,8 @@ export function onTicketMessage(callback: (payload: any) => void) {
   const s = getSocket();
   const seenMessageIds = new Set<string>();
   const handler = (data: any) => {
-    const message = data?.message && typeof data.message === 'object' ? data.message : data;
+    const message =
+      data?.message && typeof data.message === "object" ? data.message : data;
     if (message?.id) {
       if (seenMessageIds.has(String(message.id))) return;
       seenMessageIds.add(String(message.id));
@@ -181,7 +198,11 @@ export function onTicketPresence(
  * Listen for user typing indicator
  */
 export function onTicketTyping(
-  callback: (data: { ticketNumber: string; isTyping: boolean }) => void,
+  callback: (data: {
+    ticketNumber: string;
+    isTyping: boolean;
+    senderRole?: string;
+  }) => void,
 ) {
   const s = getSocket();
   const handler = (data: any) => {
@@ -223,7 +244,9 @@ export function onConnectionChange(callback: (connected: boolean) => void) {
 export function onSocketReconnect(callback: () => void) {
   const s = getSocket();
   const onConnect = () => callback();
-  s.on('connect', onConnect);
+  s.on("connect", onConnect);
   if (s.connected) callback();
-  return () => { s.off('connect', onConnect); };
+  return () => {
+    s.off("connect", onConnect);
+  };
 }
